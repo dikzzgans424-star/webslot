@@ -152,9 +152,12 @@ function showTokenDashboard() {
   }
 
   dashboard.innerHTML = `
-    <div class="info-card-header">
+<div class="info-card-header">
       <span class="info-card-title">💳 Token Aktif</span>
-      <span class="info-card-id">${currentToken.token}</span>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span class="info-card-id">${currentToken.token}</span>
+        <button onclick="logoutToken()" style="background: rgba(207,92,92,0.1); border: 1px solid var(--lose-red); color: var(--lose-red); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; letter-spacing: 1px;">✕ LogOut</button>
+      </div>
     </div>
 
     <div class="token-balance-wrap">
@@ -510,3 +513,37 @@ document.getElementById('gachaId').addEventListener('keydown', e => {
   if (e.key === 'Enter') startSpin();
 });
 
+/* ────────────────────────────────────────
+   ANTI-REFRESH & AUTO-LOGIN
+──────────────────────────────────────── */
+
+// 1. Peringatan jika refresh/tutup tab saat game berjalan
+window.addEventListener('beforeunload', (e) => {
+  if (_gameActive) {
+    e.preventDefault();
+    e.returnValue = 'Game sedang berjalan! Jika Anda keluar, permainan akan terhenti.';
+  }
+});
+
+// 2. Auto-login otomatis saat web dibuka
+window.addEventListener('DOMContentLoaded', () => {
+  const savedToken = localStorage.getItem('miwa_token');
+  if (savedToken) {
+    const inp = document.getElementById('gachaId');
+    if (inp) {
+      inp.value = savedToken;
+      startSpin(); // Langsung otomatis login
+    }
+  }
+});
+
+// 3. Fungsi Keluar / Ganti Token
+function logoutToken() {
+  if (_gameActive) {
+    setStatus('⛔ Selesaikan game dulu sebelum ganti token!');
+    shakeInput();
+    return;
+  }
+  localStorage.removeItem('miwa_token');
+  location.reload();
+}
