@@ -96,28 +96,27 @@ const Airplane = (() => {
     const area = document.createElement('div');
     area.id = 'gameArea'; area.className = 'game-area slide-in';
     area.innerHTML = `
-      <div class="spaceman-card" id="airplaneCard">
+      <div class="airplane-card" id="airplaneCard">
         <div class="slot-section-label">✈️ AIRPLANE MULTIPLIER</div>
-        <div class="spaceman-canvas-wrap" id="apWrap">
+        <div class="airplane-canvas-wrap" id="apWrap">
           <canvas id="apCanvas"></canvas>
         </div>
-        <div class="sm-btn-row" id="apBtnRow">
-          <button class="sm-btn sm-btn-cashout" id="apCashBtn" onclick="Airplane._cashout()" disabled>
+        <div class="ap-btn-row" id="apBtnRow">
+          <button class="ap-btn ap-btn-cashout" id="apCashBtn" onclick="Airplane._cashout()" disabled>
             💰 CASHOUT
           </button>
-          <button class="sm-btn sm-btn-start" id="apStartBtn" onclick="Airplane._start()">
+          <button class="ap-btn ap-btn-start" id="apStartBtn" onclick="Airplane._start()">
             ▶ MULAI
           </button>
-          <div></div>
         </div>
-        <div class="spaceman-info-row">
-          <div class="spaceman-info-item">
-            <span class="spaceman-info-label">Taruhan</span>
-            <span class="spaceman-info-val gold">Rp ${Number(_gacha.betAmount || _gacha.money/1000).toLocaleString('id-ID')}</span>
+        <div class="airplane-info-row">
+          <div class="airplane-info-item">
+            <span class="airplane-info-label">Taruhan</span>
+            <span class="airplane-info-val gold">Rp ${Number(_gacha.betAmount || _gacha.money/1000).toLocaleString('id-ID')}</span>
           </div>
-          <div class="spaceman-info-item">
-            <span class="spaceman-info-label">Status</span>
-            <span class="spaceman-info-val" id="apStatus">Siap di landasan...</span>
+          <div class="airplane-info-item">
+            <span class="airplane-info-label">Status</span>
+            <span class="airplane-info-val" id="apStatus">Siap di landasan...</span>
           </div>
         </div>
       </div>`;
