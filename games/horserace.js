@@ -99,40 +99,34 @@ const HorseRace = (() => {
 
         <div class="slot-section-label">🏇 HORSE RACE</div>
 
-        <!-- Canvas track -->
         <div class="hr-canvas-wrap">
           <canvas id="hrCanvas"></canvas>
-          <!-- Camera overlay: lane labels -->
           <div class="hr-lane-labels" id="hrLaneLabels"></div>
         </div>
 
-        <!-- Pick section -->
         <div class="hr-pick-section" id="hrPickSection">
           <div class="hr-pick-label">Pilih Kuda Kamu</div>
           <div class="hr-horse-btns">${horseBtns}</div>
         </div>
 
-        <!-- Start button (hidden until pick) -->
         <button class="hr-start-btn" id="hrStartBtn"
                 onclick="HorseRace._onStart()" disabled>
           🏁 &nbsp;START RACE
         </button>
 
-        <!-- Info row -->
-        <div class="spaceman-info-row">
-          <div class="spaceman-info-item">
-            <span class="spaceman-info-label">Hadiah</span>
-            <span class="spaceman-info-val gold">
+        <div class="hr-info-row">
+          <div class="hr-info-item">
+            <span class="hr-info-label">Hadiah</span>
+            <span class="hr-info-val gold">
               Rp ${Number(_gacha.money).toLocaleString('id-ID')}
             </span>
           </div>
-          <div class="spaceman-info-item">
-            <span class="spaceman-info-label">Status</span>
-            <span class="spaceman-info-val" id="hrStatus">Pilih kuda dulu!</span>
+          <div class="hr-info-item">
+            <span class="hr-info-label">Status</span>
+            <span class="hr-info-val" id="hrStatus">Pilih kuda dulu!</span>
           </div>
         </div>
 
-        <!-- Rule -->
         <div class="win-rule">
           <div class="win-rule-title">🏇 Cara Main</div>
           <div class="win-rule-desc">
@@ -143,7 +137,6 @@ const HorseRace = (() => {
 
       </div>
     `;
-
     if (infoCard) {
       infoCard.replaceWith(area);
     } else {

@@ -157,8 +157,8 @@ const Airplane = (() => {
     _clouds = Array.from({ length: 5 }, (_, i) => ({
       x  : W * (0.1 + i * 0.22),
       y  : H * (0.1 + Math.random() * 0.35),
-      w  : 55 + Math.random() * 50,
-      h  : 16 + Math.random() * 12,
+      w: 80 + Math.random() * 60,
+h: 22 + Math.random() * 18,
       spd: 0.18 + Math.random() * 0.25,
       alpha: 0.25 + Math.random() * 0.25,
     }));
@@ -275,9 +275,9 @@ const Airplane = (() => {
     if (_bgRed < 0.85) _drawClouds(ctx, W, H);
 
     /* ── Multiplier display (tengah atas) ── */
-    if (_phase === 'flying' || _phase === 'done') {
-      _drawMultiplierBadge(ctx, W, H);
-    }
+if (_phase === 'flying') {
+  _drawMultiplierBadge(ctx, W, H);
+}
 
     /* ── Trail asap ── */
     if (_trail.length > 1 && (_phase === 'flying' || _phase === 'done')) {
@@ -327,7 +327,18 @@ const Airplane = (() => {
     ctx.fillRect(0, 0, W, H);
 
     /* Ground strip bawah */
-    const groundAlpha = Math.max(0, 1 - _bgRed * 2);
+    let groundAlpha = 0;
+
+if (_phase === 'ready') {
+  groundAlpha = 1;
+}
+else if (_phase === 'flying') {
+  const t = Math.min(1, _flyT * 0.8);
+groundAlpha = 1 - (t * t * t);
+}
+else if (_phase === 'done' || _phase === 'crashed') {
+  groundAlpha = 1;
+}
     if (groundAlpha > 0) {
       const gg = ctx.createLinearGradient(0, H*0.88, 0, H);
       gg.addColorStop(0, `rgba(30,80,30,${groundAlpha * 0.8})`);
@@ -368,29 +379,39 @@ const Airplane = (() => {
      CLOUDS
   ───────────────────────────────── */
   function _drawClouds(ctx, W, H) {
-    const alpha = 1 - _bgRed * 1.2;
-    _clouds.forEach(c => {
-      /* Geser awan ke kiri (parallax) */
-      c.x -= c.spd;
-      if (c.x + c.w < 0) c.x = W + c.w;
+  for (const c of _clouds) {
 
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, c.alpha * alpha);
-      ctx.fillStyle   = 'rgba(255,255,255,1)';
-      /* Awan = 3 ellipse tumpang tindih */
-      for (let i = -1; i <= 1; i++) {
-        ctx.beginPath();
-        ctx.ellipse(
-          c.x + i * c.w * 0.28,
-          c.y + Math.abs(i) * c.h * 0.18,
-          c.w * (0.52 - Math.abs(i)*0.08),
-          c.h, 0, 0, Math.PI*2
-        );
-        ctx.fill();
-      }
-      ctx.restore();
-    });
+  c.x -= c.spd;
+
+  if (c.x < -c.w) {
+    c.x = W + c.w;
   }
+
+    const grad = ctx.createLinearGradient(
+      c.x,
+      c.y - c.h,
+      c.x,
+      c.y + c.h
+    );
+
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(1, 'rgba(220,235,255,0.75)');
+
+    ctx.save();
+
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = 'rgba(255,255,255,0.3)';
+    ctx.fillStyle = grad;
+
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, c.w * 0.42, c.h * 1.1, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x - c.w * 0.28, c.y + 2, c.w * 0.30, c.h * 0.85, 0, 0, Math.PI * 2);
+    ctx.ellipse(c.x + c.w * 0.28, c.y + 2, c.w * 0.30, c.h * 0.85, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
 
   /* ─────────────────────────────────
      STARS (muncul saat crash)
@@ -421,6 +442,8 @@ const Airplane = (() => {
 
     ctx.save();
     ctx.globalAlpha = progress;
+    
+    
 
     /* Badge pill */
     const bw = 110, bh = 44;
@@ -433,14 +456,19 @@ const Airplane = (() => {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    /* Teks multiplier */
-    ctx.font      = `bold 22px Syne, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle   = col.text;
-    ctx.shadowBlur  = 12;
-    ctx.shadowColor = col.border;
-    ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
+ctx.font = `900 28px Syne, sans-serif`;
+ctx.fillStyle = '#ffffff';
+
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+
+ctx.lineWidth = 4;
+ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+ctx.strokeText(_multiplier.toFixed(2) + '×', cx, cy);
+
+ctx.shadowBlur = 24;
+ctx.shadowColor = col.border;
+ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
 
     ctx.restore();
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
