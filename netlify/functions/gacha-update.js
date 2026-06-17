@@ -8,7 +8,15 @@ const DOC_ID = "main";
 let cachedClient = null;
 
 async function getClient() {
-  if (cachedClient) return cachedClient;
+  if (cachedClient) {
+    try {
+      await cachedClient.db("admin").command({ ping: 1 });
+      return cachedClient;
+    } catch (e) {
+      try { await cachedClient.close(); } catch (_) {}
+      cachedClient = null;
+    }
+  }
   cachedClient = new MongoClient(uri);
   await cachedClient.connect();
   return cachedClient;
