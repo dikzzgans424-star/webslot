@@ -47,6 +47,25 @@ function setStatus(msg, active = false) {
   statusDot.classList.toggle('active', active);
 }
 
+/* ── Toggle antara: card input token  <->  tombol Back to Dashboard ──
+   mode 'input'  : tampilkan card input token (state awal, sebelum punya token)
+   mode 'back'   : tampilkan tombol back (lagi di game, tapi game belum mulai animasi)
+   mode 'hidden' : sembunyikan keduanya (game sedang berjalan/animasi) */
+function setTokenSlotMode(mode) {
+  const card = document.getElementById('tokenInputCard');
+  const btn  = document.getElementById('backToDashboardBtn');
+  if (!card || !btn) return;
+
+  card.style.display = (mode === 'input') ? '' : 'none';
+  btn.style.display  = (mode === 'back')  ? '' : 'none';
+}
+
+function backToDashboard() {
+  if (_gameActive) return; // safety, tombolnya juga disembunyikan saat ini
+  hideGame();
+  showTokenDashboard();
+}
+
 function shakeInput() {
   const inp = document.getElementById('gachaId');
   inp.style.animation = 'none';
@@ -188,7 +207,7 @@ function showTokenDashboard() {
 
   `;
 
-  document.querySelector('.glass-card').insertAdjacentElement('afterend', dashboard);
+  document.getElementById('tokenInputSlot').insertAdjacentElement('afterend', dashboard);
   requestAnimationFrame(() => dashboard.classList.add('show'));
 }
 
@@ -344,6 +363,7 @@ function _launchGame() {
   }
 
   _gameActive = true;
+  setTokenSlotMode('hidden');
 
   const dashboard = document.getElementById('tokenDashboard');
   if (dashboard) dashboard.style.display = 'none';
@@ -373,6 +393,7 @@ function _launchGame() {
   } catch (err) {
     /* FIX Bug #7: jangan biarkan _gameActive stuck true jika init() error */
     _gameActive = false;
+    setTokenSlotMode('back');
     console.error('Game init error:', err);
     setStatus('❌ Gagal memuat game: ' + err.message);
     if (dashboard) dashboard.style.display = '';
@@ -396,6 +417,7 @@ function hideGame() {
 ──────────────────────────────────────── */
 async function onGameResult(isWin, moneyWon) {
   _gameActive = false;
+  setTokenSlotMode('back');
 
   let balanceChange = 0;
   if (isWin) {
@@ -497,7 +519,7 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
     </div>
   `;
 
-  document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+  document.getElementById('tokenInputSlot').insertAdjacentElement('afterend', area);
 }
 
 function continuePlaying() {

@@ -161,6 +161,32 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
+/* ── Back to Dashboard button (menggantikan posisi input token) ── */
+.back-dashboard-btn {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 16px 22px;
+  margin-bottom: 14px;
+  color: var(--gold-light);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+.back-dashboard-btn:hover {
+  border-color: var(--border-glow);
+  background: var(--bg-raised);
+}
+
+.back-dashboard-btn:active {
+  transform: scale(0.98);
+}
+
 /* ── Input section ── */
 .input-label {
   font-size: 10px;
@@ -1879,25 +1905,25 @@ body::after {
 /* ── Game grid ── */
 .token-game-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
 .token-game-btn {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 5px;
   background: var(--bg-raised);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-md);
-  padding: 13px 8px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
   color: var(--text-secondary);
   font-family: 'Syne', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.3px;
 }
