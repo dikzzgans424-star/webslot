@@ -294,7 +294,27 @@ if (_phase === 'flying') {
     }
 
     /* ── Pesawat ── */
-    _drawPlane(ctx, W, H);
+    if (_phase === 'crashed') {
+
+  const shake =
+    Math.min(5, _crashT * 12);
+
+  ctx.save();
+
+  ctx.translate(
+    (Math.random() - 0.5) * shake,
+    (Math.random() - 0.5) * shake
+  );
+
+  _drawPlane(ctx, W, H);
+
+  ctx.restore();
+
+} else {
+
+  _drawPlane(ctx, W, H);
+
+}
 
     /* ── Fire di atas pesawat (crash) ── */
     if (_phase === 'crashed') {
@@ -436,9 +456,62 @@ else if (_phase === 'done' || _phase === 'crashed') {
 
     /* Warna sesuai multiplier */
     let col;
-    if (_multiplier >= 5)      col = { bg: 'rgba(160,60,255,0.25)', border: 'rgba(180,80,255,0.7)', text: '#e088ff' };
-    else if (_multiplier >= 3) col = { bg: 'rgba(255,140,0,0.22)',  border: 'rgba(255,160,0,0.7)',  text: '#f5d020' };
-    else                       col = { bg: 'rgba(30,200,120,0.20)', border: 'rgba(60,220,140,0.65)', text: '#4cffaa' };
+
+if (_multiplier < 2) {
+
+  /* Hijau */
+  col = {
+    bg: 'rgba(40,220,120,0.18)',
+    border: 'rgba(60,255,140,0.75)',
+    text: '#4cffaa'
+  };
+
+} else if (_multiplier < 3) {
+
+  /* Biru */
+  col = {
+    bg: 'rgba(50,140,255,0.20)',
+    border: 'rgba(80,180,255,0.75)',
+    text: '#7ec8ff'
+  };
+
+} else if (_multiplier < 5) {
+
+  /* Orange */
+  col = {
+    bg: 'rgba(255,140,0,0.22)',
+    border: 'rgba(255,170,40,0.80)',
+    text: '#ffb84d'
+  };
+
+} else if (_multiplier < 10) {
+
+  /* Merah */
+  col = {
+    bg: 'rgba(255,70,70,0.22)',
+    border: 'rgba(255,90,90,0.85)',
+    text: '#ff7070'
+  };
+
+} else if (_multiplier < 20) {
+
+  /* Ungu */
+  col = {
+    bg: 'rgba(170,80,255,0.22)',
+    border: 'rgba(190,120,255,0.85)',
+    text: '#d7a5ff'
+  };
+
+} else {
+
+  /* Legendary Gold */
+  col = {
+    bg: 'rgba(255,210,50,0.25)',
+    border: 'rgba(255,230,120,0.95)',
+    text: '#ffe066'
+  };
+
+}
 
     ctx.save();
     ctx.globalAlpha = progress;
@@ -466,7 +539,9 @@ ctx.lineWidth = 4;
 ctx.strokeStyle = 'rgba(0,0,0,0.45)';
 ctx.strokeText(_multiplier.toFixed(2) + '×', cx, cy);
 
-ctx.shadowBlur = 24;
+ctx.shadowBlur =
+  18 + Math.min(20, _multiplier * 1.5);
+
 ctx.shadowColor = col.border;
 ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
 
@@ -542,20 +617,53 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
       _trail.push({ x: _ax, y: _ay });
       if (_trail.length > TRAIL_MAX) _trail.shift();
 
-    } else if (_phase === 'crashed') {
-      /* Jatuh ke kanan-bawah dengan spin */
-      const fall  = Math.min(1, _exitT * 0.8);
-      const fallE = fall * fall * fall;
-      _tx = _crashStartX + fallE * (_cv._lw * 0.6);
-      _ty = _crashStartY + fallE * (_cv._lh * 0.5);
-      _tilt = _exitT * 3.5;   /* spin cepat */
+} else if (_phase === 'crashed') {
 
-      _ax += (_tx - _ax) * 0.055;
-      _ay += (_ty - _ay) * 0.055;
+  const t = Math.min(1, _exitT * 0.18);
 
-      /* Spawn fire particles */
-      if (Math.random() < 0.6) _spawnFire();
+  /* 0 - 30% : kehilangan kontrol */
+  const panicPhase = Math.min(1, t / 0.30);
 
+  /* 30 - 100% : nosedive */
+  const divePhase =
+    t <= 0.30
+      ? 0
+      : (t - 0.30) / 0.70;
+
+  const diveEase =
+    1 - Math.pow(1 - divePhase, 3);
+
+  /* Drift dulu sebelum jatuh */
+  _tx =
+    _crashStartX +
+    panicPhase * 30 +
+    diveEase * (_cv._lw * 0.60);
+
+  /* Awalnya hampir datar lalu drop */
+  _ty =
+    _crashStartY +
+    diveEase * diveEase * (_cv._lh * 0.75);
+
+  /* Oleng keras */
+  const panicShake =
+    Math.sin(_crashT * 18) *
+    0.65 *
+    (1 - divePhase);
+
+  /* Nosedive bertahap */
+  const diveSpin =
+    diveEase * 4.8;
+
+  _tilt = panicShake + diveSpin;
+
+  /* Berat */
+  _ax += (_tx - _ax) * 0.025;
+  _ay += (_ty - _ay) * 0.025;
+
+  /* Api makin brutal */
+  if (Math.random() < 0.95) {
+    _spawnFire();
+  }
     } else if (_phase === 'done') {
       /* Landing mulus ke kanan-bawah */
       const exitE = Math.min(1, _exitT * 0.55);
@@ -621,12 +729,56 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
   /* ─────────────────────────────────
      CRASH OVERLAY
   ───────────────────────────────── */
-  function _drawCrashOverlay(ctx, W, H) {
-    const vg = ctx.createRadialGradient(W/2, H/2, H*0.1, W/2, H/2, H);
-    vg.addColorStop(0, 'rgba(180,0,0,0)');
-    vg.addColorStop(1, `rgba(160,0,0,${Math.min(0.55, _crashT * 0.4)})`);
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+function _drawCrashOverlay(ctx, W, H) {
+
+  const vg = ctx.createRadialGradient(
+    W / 2,
+    H / 2,
+    H * 0.1,
+    W / 2,
+    H / 2,
+    H
+  );
+
+  vg.addColorStop(0, 'rgba(180,0,0,0)');
+  vg.addColorStop(
+    1,
+    `rgba(160,0,0,${
+      Math.min(0.55, _crashT * 0.4)
+    })`
+  );
+
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+
+  /* FLASH PUTIH */
+  if (_crashT < 0.15) {
+
+    const flashAlpha =
+      (0.15 - _crashT) / 0.15;
+
+    ctx.fillStyle =
+      `rgba(255,255,255,${
+        flashAlpha * 0.9
+      })`;
+
+    ctx.fillRect(0, 0, W, H);
   }
+
+  /* GELAP SESAAT SETELAH FLASH */
+  if (_crashT > 0.15 && _crashT < 0.35) {
+
+    const dark =
+      (_crashT - 0.15) / 0.20;
+
+    ctx.fillStyle =
+      `rgba(0,0,0,${
+        dark * 0.35
+      })`;
+
+    ctx.fillRect(0, 0, W, H);
+  }
+}
 
   /* ─────────────────────────────────
      CRASH TEXT
@@ -666,17 +818,27 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.font        = `bold 18px Syne, sans-serif`;
-    ctx.fillStyle   = '#4cffaa';
-    ctx.shadowBlur  = 14;
-    ctx.shadowColor = 'rgba(60,220,140,0.9)';
-    ctx.fillText('CASHOUT BERHASIL ✓', W * 0.5, H * 0.22);
+    ctx.font = `900 24px Syne, sans-serif`;
+ctx.fillStyle = '#4cffaa';
 
-    ctx.font        = `bold 34px Syne, sans-serif`;
-    ctx.fillStyle   = '#f5d020';
-    ctx.shadowColor = 'rgba(240,200,0,0.8)';
-    ctx.shadowBlur  = 20;
-    ctx.fillText(_multiplier.toFixed(2) + '×', W * 0.5, H * 0.34);
+ctx.lineWidth = 3;
+ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+ctx.strokeText('CASHOUT BERHASIL ✓', W * 0.5, H * 0.22);
+
+ctx.shadowBlur = 8;
+ctx.shadowColor = 'rgba(60,220,140,0.8)';
+ctx.fillText('CASHOUT BERHASIL ✓', W * 0.5, H * 0.22);
+
+    ctx.font = `900 42px Syne, sans-serif`;
+ctx.fillStyle = '#f5d020';
+
+ctx.lineWidth = 6;
+ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+ctx.strokeText(_multiplier.toFixed(2) + '×', W * 0.5, H * 0.34);
+
+ctx.shadowBlur = 10;
+ctx.shadowColor = '#f5d020';
+ctx.fillText(_multiplier.toFixed(2) + '×', W * 0.5, H * 0.34);
 
     ctx.restore();
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
@@ -815,8 +977,8 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
     ctx.fillStyle = '#cc2200'; ctx.fill();
 
     /* ── Mesin (di bawah sayap) ── */
-    _drawEngine(ctx, 4, 22);
-    _drawEngine(ctx, -6, -14);
+_drawEngine(ctx, 4, 22);
+_drawEngine(ctx, -10, -18);
 
     /* ── Stripe dekorasi merah ── */
     ctx.strokeStyle = '#cc2200';
