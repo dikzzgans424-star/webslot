@@ -17,7 +17,7 @@ const GAME_MULTIPLIER = {
   roulette:  2,     /* roulette hitung prize di dalam roulette.js sendiri */
   coinflip:  2,
   horserace: 2,
-  airplane:  null,  /* dynamic, kena pajak 5% */
+  airplane:  null,  /* Multiplier, kena pajak 5% */
   blackjack: 2,
 };
 
@@ -146,7 +146,7 @@ function showTokenDashboard() {
 
   /* Label multiplier roulette tampilkan "2× / hijau 2.5×" */
   function gameMultiLabel(key) {
-    if (key === 'airplane')  return 'dynamic';
+    if (key === 'airplane')  return 'Multiplier';
     if (key === 'roulette')  return '2× / hijau 2.5×';
     return GAME_MULTIPLIER[key] + '×';
   }
@@ -210,7 +210,7 @@ function openBetModal(game) {
   const isAirplane = game === 'airplane';
   const isRoulette = game === 'roulette';
   let multiText;
-  if (isAirplane)       multiText = 'Dynamic';
+  if (isAirplane)       multiText = 'Multiplier';
   else if (isRoulette)  multiText = '2× menang · hijau 2.5× (house)';
   else                  multiText = `${GAME_MULTIPLIER[game]}× kemenangan`;
 
@@ -301,7 +301,7 @@ function onModalBetInput() {
   if (_selectedGame === 'airplane') {
     preview.innerHTML = `
       Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
-      <br>Menang: <em>tergantung multiplier − 5% pajak</em>
+      <br>Menang: <em>tergantung multiplier</em>
     `;
   } else if (_selectedGame === 'roulette') {
     const prize = val * 2;
