@@ -1,20 +1,58 @@
+import { MongoClient } from "mongodb";
+
+const uri = process.env.MONGODB_URI;
+const DB_NAME = "miwa";
+const COLLECTION = "gachadata";
+const DOC_ID = "main";   // dokumen tunggal, id tetap "main"
+
+let cachedClient = null;
+
+async function getClient() {
+  if (cachedClient) return cachedClient;
+  cachedClient = new MongoClient(uri);
+  await cachedClient.connect();
+  return cachedClient;
+}
+
 export async function handler() {
-  const token = process.env.GITHUB_TOKEN;
-
-  const res = await fetch(
-    "https://api.github.com/repos/dikzzgans424-star/dbslot/contents/dbdata.json",
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json"
-      }
+  try {
+    if (!uri) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: "MONGODB_URI tidak ditemukan" })
+      };
     }
-  );
 
-  const data = await res.json();
+    const client = await getClient();
+    const col = client.db(DB_NAME).collection(COLLECTION);
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify(data)
-  };
+    let doc = await col.findOne({ _id: DOC_ID });
+
+    /* Kalau belum ada dokumen sama sekali (pertama kali dipakai),
+       buat dokumen kosong otomatis */
+    if (!doc) {
+      doc = { _id: DOC_ID, tokens: [] };
+      await col.insertOne(doc);
+    }
+
+    /* Samakan bentuk respons dengan sistem lama (yang formatnya base64+sha)
+       supaya app.js TIDAK perlu diubah sama sekali */
+    const content = Buffer.from(
+      JSON.stringify({ tokens: doc.tokens || [] }, null, 2)
+    ).toString("base64");
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        content,
+        sha: doc._rev || "0"   // dipakai cuma sebagai placeholder, MongoDB tidak butuh SHA
+      })
+    };
+
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
+  }
 }
