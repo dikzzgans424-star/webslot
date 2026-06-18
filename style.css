@@ -2423,3 +2423,158 @@ body::after {
   .bj-card { width: 50px; height: 74px; }
   .bj-card-suit { font-size: 22px; }
 }
+
+/* ════════════════════════════════
+   PLINKO
+════════════════════════════════ */
+.plinko-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.plinko-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
+}
+
+.plinko-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#plinkoCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.plinko-hud {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  min-height: 20px;
+  transition: color 0.2s;
+}
+
+/* ════════════════════════════════
+   MINES
+════════════════════════════════ */
+.mines-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mines-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
+}
+
+.mines-hud {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  min-height: 18px;
+}
+
+.mines-multi {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'DM Serif Display', serif;
+  color: var(--gold);
+  margin-bottom: 16px;
+}
+
+.mines-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  max-width: 320px;
+  margin: 0 auto 18px;
+}
+
+.mines-cell {
+  aspect-ratio: 1 / 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  color: var(--text-muted);
+}
+
+.mines-cell:hover:not(:disabled) {
+  background: rgba(212,175,90,0.12);
+  transform: scale(1.04);
+}
+
+.mines-cell:disabled {
+  cursor: default;
+}
+
+.mines-cell.mines-gem {
+  background: rgba(76,175,130,0.18);
+  border-color: var(--win-green);
+}
+
+.mines-cell.mines-bomb {
+  background: rgba(207,92,92,0.25);
+  border-color: var(--lose-red);
+}
+
+.mines-cashout-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--gold), #b8860b);
+  color: #1a1410;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.mines-cashout-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mines-cashout-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}

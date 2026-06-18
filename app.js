@@ -19,6 +19,8 @@ const GAME_MULTIPLIER = {
   horserace: 2,
   airplane:  null,  /* Multiplier, kena pajak 5% */
   blackjack: 2,
+  plinko:    null,  /* Multiplier bervariasi 0.3x-10x, dihitung di plinko.js */
+  mines:     null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di mines.js */
 };
 
 const GAME_LABELS = {
@@ -28,6 +30,8 @@ const GAME_LABELS = {
   horserace: '🏇 Horse Race',
   airplane:  '✈️ AirPlane',
   blackjack: '🃏 Blackjack',
+  plinko:    '🟣 Plinko',
+  mines:     '💣 Mines',
 };
 
 const GAMES = {
@@ -37,6 +41,8 @@ const GAMES = {
   airplane:  () => Airplane,
   horserace: () => HorseRace,
   blackjack: () => Blackjack,
+  plinko:    () => Plinko,
+  mines:     () => Mines,
 };
 
 /* ────────────────────────────────────────
@@ -168,6 +174,8 @@ function showTokenDashboard() {
   /* Label multiplier roulette tampilkan "2× / hijau 2.5×" */
   function gameMultiLabel(key) {
     if (key === 'airplane')  return 'Multiplier';
+    if (key === 'plinko')    return '0.3× – 10×';
+    if (key === 'mines')     return 'Cashout × (s/d 2254×)';
     if (key === 'roulette')  return '2× / hijau 2.5×';
     return GAME_MULTIPLIER[key] + '×';
   }
@@ -371,7 +379,7 @@ function _launchGame() {
   if (dashboard) dashboard.style.display = 'none';
 
   const betRp   = betToRp(_currentBet);
-  const prizeRp = _selectedGame === 'airplane'
+  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines')
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
@@ -422,8 +430,13 @@ async function onGameResult(isWin, moneyWon) {
   setTokenSlotMode('hidden'); // Sembunyikan tombol saat result layar selesai muncul
 
   let balanceChange = 0;
-  if (isWin) {
-    if (_selectedGame === 'airplane') {
+  if (_selectedGame === 'plinko') {
+    /* Plinko selalu punya payout (0.3x-10x), walau "rugi" itu cuma
+       rugi SEBAGIAN bet, bukan kehilangan semuanya */
+    const wonBet  = Math.floor(moneyWon / 1000);
+    balanceChange = wonBet - _currentBet;
+  } else if (isWin) {
+    if (_selectedGame === 'airplane' || _selectedGame === 'mines') {
       const wonBet = Math.floor(moneyWon / 1000);
       balanceChange = wonBet - _currentBet;
     } else {
