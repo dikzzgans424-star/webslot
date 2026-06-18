@@ -1905,34 +1905,35 @@ body::after {
 /* ── Game grid ── */
 .token-game-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr); /* Berubah jadi 2 kolom */
+  gap: 12px; /* Jarak antar tombol dilebarkan */
 }
 
 .token-game-btn {
   display: flex;
-  flex-direction: row;
+  flex-direction: column; /* Konten ditumpuk atas-bawah */
   align-items: center;
-  justify-content: space-between;
-  gap: 5px;
+  justify-content: center;
+  gap: 10px;
   background: var(--bg-raised);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-md);
-  padding: 14px 18px;
+  padding: 22px 14px; /* Tombol dibikin lebih tinggi/chunky */
   cursor: pointer;
   transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
   color: var(--text-secondary);
   font-family: 'Syne', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 15px; /* Font nama game dibesarkan */
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-align: center;
 }
 
 .token-game-btn:hover {
   background: rgba(212,175,90,0.08);
   border-color: rgba(212,175,90,0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(212,175,90,0.1);
+  transform: translateY(-3px); /* Animasi angkat lebih kerasa */
+  box-shadow: 0 6px 20px rgba(212,175,90,0.12);
   color: var(--text-primary);
 }
 
@@ -1944,16 +1945,19 @@ body::after {
 }
 
 .token-game-multi {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--gold-dim);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold); /* Default langsung nyala gold */
+  background: rgba(212,175,90,0.12); /* Dikasih background kapsul */
+  padding: 5px 12px;
+  border-radius: 12px;
   letter-spacing: 1px;
-  transition: color .18s;
+  transition: all .18s;
 }
 
 .token-game-btn.active .token-game-multi,
 .token-game-btn:hover  .token-game-multi {
-  color: var(--gold);
+  background: rgba(212,175,90,0.25); /* Background makin terang pas dihover */
 }
 
 /* ── History rows ── */
@@ -2127,7 +2131,9 @@ body::after {
 
 @media (max-width: 420px) {
   .token-balance-value { font-size: 42px; }
-  .token-game-btn { padding: 11px 6px; font-size: 11px; }
+  .token-game-grid { gap: 8px; }
+  .token-game-btn { padding: 18px 8px; font-size: 13px; gap: 8px; }
+  .token-game-multi { font-size: 10px; padding: 4px 8px; }
 }
 
 /* ══════════════════════════════════════

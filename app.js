@@ -61,7 +61,7 @@ function setTokenSlotMode(mode) {
 }
 
 function backToDashboard() {
-  if (_gameActive) return; // safety, tombolnya juga disembunyikan saat ini
+  _gameActive = false; // Reset state agar bisa kembali dari lobby game
   hideGame();
   showTokenDashboard();
 }
@@ -149,6 +149,8 @@ function showTokenDashboard() {
   const old = document.getElementById('tokenDashboard');
   if (old) old.remove();
   hideGame();
+  
+  setTokenSlotMode('hidden'); // Pastikan tombol back hilang di Dashboard
 
   const dashboard = document.createElement('div');
   dashboard.id        = 'tokenDashboard';
@@ -363,7 +365,7 @@ function _launchGame() {
   }
 
   _gameActive = true;
-  setTokenSlotMode('hidden');
+  setTokenSlotMode('back'); // Tampilkan tombol back selama di lobby/waiting start
 
   const dashboard = document.getElementById('tokenDashboard');
   if (dashboard) dashboard.style.display = 'none';
@@ -393,7 +395,7 @@ function _launchGame() {
   } catch (err) {
     /* FIX Bug #7: jangan biarkan _gameActive stuck true jika init() error */
     _gameActive = false;
-    setTokenSlotMode('back');
+    setTokenSlotMode('hidden'); // Karena kembali ke dashboard, harus di-hide
     console.error('Game init error:', err);
     setStatus('❌ Gagal memuat game: ' + err.message);
     if (dashboard) dashboard.style.display = '';
@@ -417,7 +419,7 @@ function hideGame() {
 ──────────────────────────────────────── */
 async function onGameResult(isWin, moneyWon) {
   _gameActive = false;
-  setTokenSlotMode('back');
+  setTokenSlotMode('hidden'); // Sembunyikan tombol saat result layar selesai muncul
 
   let balanceChange = 0;
   if (isWin) {
