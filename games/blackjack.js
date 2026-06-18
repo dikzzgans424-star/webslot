@@ -218,6 +218,7 @@ const Blackjack = (() => {
 
   /* ── Deal awal ── */
   async function _dealInitial() {
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu dealing dimulai
     _deck       = _buildDeck();
     _playerHand = [];
     _dealerHand = [];

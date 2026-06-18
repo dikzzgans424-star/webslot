@@ -246,6 +246,7 @@ const HorseRace = (() => {
   function _onStart() {
     if (_phase !== 'ready' || _picked < 0) return;
     _phase = 'racing';
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu race dimulai
 
     const pickSec  = document.getElementById('hrPickSection');
     const startBtn = document.getElementById('hrStartBtn');

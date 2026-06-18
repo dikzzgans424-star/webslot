@@ -457,6 +457,7 @@ const Roulette = (() => {
     spinBtn.disabled = true;
     document.getElementById('betRed').disabled   = true;
     document.getElementById('betBlack').disabled = true;
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu spin dimulai
     window.setStatus('🎡 Bola berputar...', true);
 
     const isWin = _gacha.result === 'win';

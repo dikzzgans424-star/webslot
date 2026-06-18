@@ -181,6 +181,7 @@ h: 22 + Math.random() * 18,
   function _start() {
     if (_phase !== 'ready') return;
     _phase = 'flying';
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu pesawat mulai terbang
     const sb = document.getElementById('apStartBtn');
     const cb = document.getElementById('apCashBtn');
     if (sb) { sb.disabled = true; sb.classList.add('used'); sb.textContent = '🛫'; }

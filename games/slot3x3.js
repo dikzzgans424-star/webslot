@@ -181,6 +181,7 @@ const Slot3x3 = (() => {
     const btn = document.getElementById('spinGameBtn');
     if (!btn || btn.disabled) return;
     btn.disabled = true;
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu spin dimulai
     window.setStatus('🎰 Spinning...', true);
 
     /* ── 1. Tentukan hasil — dari app.js (sumber kebenaran) ── */

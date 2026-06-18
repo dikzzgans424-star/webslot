@@ -406,6 +406,7 @@ const CoinFlip = (() => {
     spinBtn.disabled = true;
     document.getElementById('betHeads').disabled = true;
     document.getElementById('betTails').disabled = true;
+    window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu flip dimulai
     window.setStatus('🪙 Melempar koin...', true);
 
     const hud = document.getElementById('coinHud');
