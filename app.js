@@ -35,7 +35,7 @@ const GAME_LABELS = {
 };
 
 const GAMES = {
-  reelsgird:   () => ReelsGird,
+  reelsgird:   () => ReelsGrid,
   roulette:  () => Roulette,
   coinflip:  () => CoinFlip,
   airplane:  () => Airplane,
