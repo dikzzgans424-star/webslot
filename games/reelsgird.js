@@ -22,28 +22,28 @@ const ReelsGrid = (() => {
       paylineRow: 1,   // baris tengah (0-indexed)
       minMatch: 3,
       desc: 'Baris tengah — 3 simbol sama',
-      multTable: { 3: 2.5 },
+      multTable: { 3: 2.0 },
     },
     '4x4': {
       key: '4x4', label: '4 × 4', cols: 4, rows: 4,
       paylineRow: 1,
       minMatch: 3,
       desc: 'Baris ke-2 — minimal 3 sama berurutan',
-      multTable: { 3: 2.0, 4: 6.0 },
+      multTable: { 3: 2.0, 4: 2.5 },
     },
     '5x5': {
       key: '5x5', label: '5 × 5', cols: 5, rows: 5,
       paylineRow: 2,
       minMatch: 3,
       desc: 'Baris tengah — minimal 3 sama berurutan',
-      multTable: { 3: 1.8, 4: 4.5, 5: 12.0 },
+      multTable: { 3: 2.0, 4: 3.0, 5: 3.5 },
     },
     '6x3': {
       key: '6x3', label: '6 × 3', cols: 6, rows: 3,
       paylineRow: 1,
       minMatch: 3,
       desc: 'Baris tengah — minimal 3 sama berurutan dari 6',
-      multTable: { 3: 1.5, 4: 3.0, 5: 7.0, 6: 18.0 },
+      multTable: { 3: 2.0, 4: 3.0, 5: 4.0, 6: 5.5 },
     },
   };
 

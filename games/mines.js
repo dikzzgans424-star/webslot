@@ -27,7 +27,8 @@ const Mines = (() => {
     easy: { cols: 6, rows: 3, total: 18, bombsMin: 3, bombsMax: 3, label: '18 Kotak · 3 Bomb' },
     hard: { cols: 5, rows: 5, total: 25, bombsMin: 5, bombsMax: 7, label: '25 Kotak · 5-7 Bomb' },
   };
-  const HOUSE_EDGE = 0.02;
+  const HOUSE_EDGE = 0.04;
+  const MULT_CAP   = 15;     // batas atas multiplier biar gak meledak ke 30x+
 
   /* ── State ── */
   let _gacha        = null;
@@ -56,7 +57,7 @@ const Mines = (() => {
     for (let i = 0; i < picks; i++) {
       prob *= (_gems - i) / (_mode.total - i);
     }
-    return (1 / prob) * (1 - HOUSE_EDGE);
+    return Math.min(MULT_CAP, (1 / prob) * (1 - HOUSE_EDGE));
   }
 
   /* ────────────────────────────────────
@@ -123,8 +124,8 @@ const Mines = (() => {
     /* Tentukan ambang aman terjamin, proporsional ke jumlah gem di mode ini */
     const maxSafeWin = Math.max(1, _gems - 2); // jangan sampai >= seluruh gem
     _safeTarget = _isWinPath
-      ? 8 + Math.floor(Math.random() * 5) // 8-12 kotak aman terjamin saat WIN
-      : 1 + Math.floor(Math.random() * 4); // 1-4, sama seperti sebelumnya
+      ? Math.min(maxSafeWin, 4 + Math.floor(Math.random() * 4)) // 4-7 kotak aman terjamin saat WIN
+      : Math.min(maxSafeWin, 1 + Math.floor(Math.random() * 4)); // 1-4, sama seperti sebelumnya
 
     _render();
   }
