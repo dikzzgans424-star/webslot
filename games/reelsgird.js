@@ -238,11 +238,11 @@ const ReelsGrid = (() => {
     }
 
     /* Animasi — makin ke kanan makin lama */
-    const base = 700;
+    const base = 1300;
     const promises = syms.map((sym, i) => {
       const col      = i % m.cols;
-      const duration = base + col * 300 + Math.floor(Math.random() * 200);
-      const delay    = col * 80;
+      const duration = base + col * 450 + Math.floor(Math.random() * 250);
+      const delay    = col * 150;
       return animateReel(document.getElementById('reel' + (i+1)), sym, duration, delay);
     });
     await Promise.all(promises);

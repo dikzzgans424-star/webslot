@@ -174,25 +174,24 @@ const Plinko = (() => {
   function _pickTargetSlot(isWin) {
     if (isWin) {
       const pool = [
-        // Merah 20 tiket: 10x kiri=4, 3x kiri=6, 3x kanan=6, 10x kanan=4
-        0,0,0,0, 1,1,1,1,1,1, 15,15,15,15,15,15, 16,16,16,16,
-        // Tengah-flank 2 tiket: 1x=1, 1x=1 (breakeven, aman muncul di pool menang)
-        7, 9,
-        // Kuning 78 tiket (10 slot, ~7-8 tiket tiap slot)
-        2,2,2,2,2,2,2,2,
-        3,3,3,3,3,3,3,3,
-        4,4,4,4,4,4,4,4,
-        5,5,5,5,5,5,5,5,
-        6,6,6,6,6,6,6,6,
-        10,10,10,10,10,10,10,10,
-        11,11,11,11,11,11,11,11,
-        12,12,12,12,12,12,12,12,
-        13,13,13,13,13,13,13,
-        14,14,14,14,14,14,14,
+        // Merah 10 tiket — dikecilin, biar dominasinya pindah ke kuning
+        0,0,0, 1,1, 15,15, 16,16,16,
+        // Kuning 90 tiket (10 slot, 9 tiket tiap slot) — banyakin di sini
+        2,2,2,2,2,2,2,2,2,
+        3,3,3,3,3,3,3,3,3,
+        4,4,4,4,4,4,4,4,4,
+        5,5,5,5,5,5,5,5,5,
+        6,6,6,6,6,6,6,6,6,
+        10,10,10,10,10,10,10,10,10,
+        11,11,11,11,11,11,11,11,11,
+        12,12,12,12,12,12,12,12,12,
+        13,13,13,13,13,13,13,13,13,
+        14,14,14,14,14,14,14,14,14,
       ];
       return pool[Math.floor(Math.random() * pool.length)];
     } else {
-      // Lose: cuma slot 8 (0.5x) yang beneran rugi di papan ini
+      // Lose: balik ke slot 8 (0.5x) — biar rasio 55% kalah / 45% menang
+      // tetep sesuai apa yang udah ditentuin app.js, ga di-gelembungin lagi
       return 8;
     }
   }
@@ -214,8 +213,11 @@ const Plinko = (() => {
     const hud = document.getElementById('plinkoHud');
     if (hud) hud.textContent = '🟣 Bola sedang jatuh...';
 
-    /* ── Tentukan hasil — dari app.js (sumber kebenaran) ── */
-    const isWin       = _gacha.result === 'win';
+    /* ── Tentukan hasil — KHUSUS plinko, beda dari game lain ──
+       Plinko punya win chance sendiri (lebih gede dari game lain),
+       ga ngandelin _gacha.result yang dari app.js */
+    const _plinkoWinChance = _gacha.isPremium ? 0.55 : 0.45;
+    const isWin       = Math.random() < _plinkoWinChance;
     const targetSlot   = _pickTargetSlot(isWin);
     const mult         = MULTS[targetSlot];
     const path         = _generatePath(targetSlot);
@@ -225,7 +227,7 @@ const Plinko = (() => {
 
     /* ── Hitung payout ── */
     const winRp  = Math.floor(_bet * mult) * 1000;
-    const won    = mult >= 1; // konsisten: untung kalau mult >= 1x
+    const won    = mult > 1; // 1x dianggap RUGI (breakeven, ga ada profit beneran)
 
     if (hud) {
       hud.textContent = `🎯 Mendarat di ${mult}x — ${won ? 'UNTUNG' : 'RUGI'}!`;
