@@ -2505,6 +2505,41 @@ body::after {
   min-height: 18px;
 }
 
+.mines-mode-select {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.mines-mode-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.mines-mode-btn:hover {
+  background: rgba(212,175,90,0.12);
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+
+.mines-mode-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--text-main, #fff);
+  margin-bottom: 2px;
+}
+
+.mines-mode-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .mines-multi {
   text-align: center;
   font-size: 22px;
