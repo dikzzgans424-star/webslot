@@ -13,7 +13,7 @@ let _gameActive  = false;
 
 /* ── Multiplier per game ── */
 const GAME_MULTIPLIER = {
-  reelsgrid:   2,
+  reelsgird:   2,
   roulette:  2,     /* roulette hitung prize di dalam roulette.js sendiri */
   coinflip:  2,
   horserace: 2,
@@ -24,7 +24,7 @@ const GAME_MULTIPLIER = {
 };
 
 const GAME_LABELS = {
-  reelsgrid:   '🎰 Reels Grid',
+  reelsgird:   '🎰 Reels Grid',
   roulette:  '🎡 Roulette',
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
@@ -35,7 +35,7 @@ const GAME_LABELS = {
 };
 
 const GAMES = {
-  reelsgrid:   () => Reelsgrid,
+  reelsgird:   () => Reelsgrid,
   roulette:  () => Roulette,
   coinflip:  () => CoinFlip,
   airplane:  () => Airplane,
@@ -398,7 +398,7 @@ function _launchGame() {
   };
 
   try {
-    const gameModule = (GAMES[_selectedGame] ?? GAMES['reelsgrid'])();
+    const gameModule = (GAMES[_selectedGame] ?? GAMES['reelsgird'])();
     gameModule.init(gameObj, onGameResult);
   } catch (err) {
     /* FIX Bug #7: jangan biarkan _gameActive stuck true jika init() error */

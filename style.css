@@ -2613,3 +2613,211 @@ body::after {
 .mines-cashout-btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
+
+/* ════════════════════════════════
+   SLOT MULTI-MODE
+════════════════════════════════ */
+
+/* Card utama */
+.slot-multi-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.slot-multi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
+}
+
+/* ── Mode Select ── */
+.slot-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+
+.slot-mode-btn {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.2s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-primary);
+}
+
+.slot-mode-btn:hover,
+.slot-mode-btn:active {
+  background: rgba(212,175,90,0.09);
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+}
+
+.slot-mode-label {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 1px;
+  font-family: 'DM Serif Display', serif;
+}
+
+.slot-mode-desc {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.slot-mode-mult {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.slot-mode-mult span {
+  font-size: 0.66rem;
+  background: rgba(212,175,90,0.08);
+  border: 1px solid rgba(212,175,90,0.15);
+  border-radius: 20px;
+  padding: 2px 7px;
+  color: var(--gold-dim);
+}
+
+/* ── HUD ── */
+.slot-multi-hud {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 18px;
+}
+
+/* ── Grid ── */
+.slot-multi-grid {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+/* ── Slot Window (override untuk multi-mode, ITEM_H = 72) ── */
+.slot-multi-grid .slot-window {
+  height: 72px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+/* Payline row highlight */
+.slot-multi-grid .slot-window.payline-row {
+  border-color: rgba(212,175,90,0.4);
+  box-shadow: 0 0 8px rgba(212,175,90,0.12);
+}
+
+/* Win glow */
+.slot-multi-grid .slot-window.win-glow {
+  border-color: var(--gold-light) !important;
+  box-shadow: 0 0 18px rgba(240,208,128,0.45), inset 0 0 8px rgba(240,208,128,0.1) !important;
+  animation: slotWinPulse 0.55s ease-in-out infinite alternate;
+}
+
+@keyframes slotWinPulse {
+  from { box-shadow: 0 0 10px rgba(240,208,128,0.35); }
+  to   { box-shadow: 0 0 24px rgba(240,208,128,0.7); }
+}
+
+/* Reel inner */
+.slot-multi-grid .slot-reel {
+  position: absolute;
+  width: 100%;
+  left: 0; top: 0;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+}
+
+.slot-multi-grid .slot-reel div {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  user-select: none;
+}
+
+/* Top & bottom fade per window */
+.slot-multi-grid .slot-window::before,
+.slot-multi-grid .slot-window::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: 16px;
+  z-index: 5;
+  pointer-events: none;
+}
+.slot-multi-grid .slot-window::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg-base), transparent);
+}
+.slot-multi-grid .slot-window::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg-base), transparent);
+}
+
+/* ── Payline label ── */
+.slot-payline-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  align-self: flex-end;
+  padding-right: 2px;
+  margin-top: -8px;
+}
+
+/* ── Multiplier chips ── */
+.slot-mult-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+}
+
+.mult-chip {
+  background: rgba(212,175,90,0.07);
+  border: 1px solid rgba(212,175,90,0.18);
+  border-radius: 20px;
+  padding: 4px 11px;
+  font-size: 0.7rem;
+  color: var(--gold-dim);
+  font-weight: 600;
+}
+
+.mult-chip strong {
+  color: var(--gold);
+  font-weight: 800;
+}
