@@ -165,14 +165,37 @@ const Plinko = (() => {
     return steps;
   }
 
-  /* Pilih slot tujuan berdasarkan kategori win/lose dari app.js */
+  /* Pilih slot tujuan berdasarkan kategori win/lose dari app.js
+     Target persentase saat WIN (total 100 tiket):
+       Merah   (10x, 3x)                    -> 20%
+       Kuning  (1x,1.1x,1.2x,1.4x,1.6x)    -> 75%
+       Abu-abu (0.3x, 0.5x)                 ->  5%
+  */
   function _pickTargetSlot(isWin) {
-    const candidates = [];
-    MULTS.forEach((m, idx) => {
-      if (isWin && m >= 1.2) candidates.push(idx);
-      if (!isWin && m < 1)   candidates.push(idx);
-    });
-    return candidates[Math.floor(Math.random() * candidates.length)];
+    if (isWin) {
+      const pool = [
+        // Merah 20 tiket: 10x kiri=4, 3x kiri=6, 3x kanan=6, 10x kanan=4
+        0,0,0,0, 1,1,1,1,1,1, 15,15,15,15,15,15, 16,16,16,16,
+        // Abu-abu 5 tiket: 0.5=2, 0.3=1, 0.5=2
+        7,7, 8, 9,9,
+        // Kuning 75 tiket (10 slot, ~7-8 tiket tiap slot)
+        2,2,2,2,2,2,2,2,
+        3,3,3,3,3,3,3,3,
+        4,4,4,4,4,4,4,
+        5,5,5,5,5,5,5,5,
+        6,6,6,6,6,6,6,
+        10,10,10,10,10,10,10,
+        11,11,11,11,11,11,11,11,
+        12,12,12,12,12,12,12,
+        13,13,13,13,13,13,13,13,
+        14,14,14,14,14,14,14,14,
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      // Lose: jatuh ke 0.3x / 0.5x (tengah abu-abu)
+      const losePool = [7, 7, 8, 9, 9];
+      return losePool[Math.floor(Math.random() * losePool.length)];
+    }
   }
 
   /* ────────────────────────────────────

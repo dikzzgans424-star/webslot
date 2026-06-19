@@ -2,27 +2,31 @@
    MINES — Grid Reveal Game
    games/mines.js
 
-   5x5 grid (25 kotak), 3 bomb tetap (22 gem aman).
+   2 mode grid, dipilih user sebelum board muncul:
+     - 18 kotak (6x3) → 3 bomb tetap   (15 gem aman)  → easy
+     - 25 kotak (5x5) → 5-7 bomb random (18-20 gem aman) → hard
    User klik kotak satu-satu, tiap kotak aman menaikkan multiplier.
    User bisa cashout kapan saja sebelum kena bomb.
 
    Mekanisme predetermined result:
    - _gacha.result dari app.js menentukan "safeStreakTarget":
-       win  -> target tinggi (16-22) → user dijamin banyak klik aman
-               dulu kalau mau push, tapi tetap bebas cashout kapan saja
+       win  -> target tinggi (proporsional ke jumlah gem) → user dijamin
+               banyak klik aman dulu kalau mau push, tapi tetap bebas
+               cashout kapan saja
        lose -> target rendah (1-4)   → setelah itu, tiap klik berikutnya
                punya kemungkinan besar (70%) kena bomb kalau dia push terus
    - Multiplier dihitung dari tabel probabilitas survival ASLI (bukan random),
-     supaya payout tetap matematis benar sesuai jumlah klik aman yang dilakukan.
+     supaya payout tetap matematis benar sesuai jumlah klik aman yang dilakukan
+     DAN sesuai jumlah bomb yang aktif di mode yang dipilih.
 ══════════════════════════════════════ */
 
 const Mines = (() => {
 
-  /* ── Config ── */
-  const GRID_SIZE  = 5;
-  const TOTAL      = GRID_SIZE * GRID_SIZE; // 25
-  const BOMBS      = 3;
-  const GEMS       = TOTAL - BOMBS;          // 22
+  /* ── Config per-mode ── */
+  const MODES = {
+    easy: { cols: 6, rows: 3, total: 18, bombsMin: 3, bombsMax: 3, label: '18 Kotak · 3 Bomb' },
+    hard: { cols: 5, rows: 5, total: 25, bombsMin: 5, bombsMax: 7, label: '25 Kotak · 5-7 Bomb' },
+  };
   const HOUSE_EDGE = 0.02;
 
   /* ── State ── */
@@ -30,27 +34,33 @@ const Mines = (() => {
   let _onResult     = null;
   let _bet          = 0;
   let _done         = false;
-  let _busy         = false;     // lock saat animasi reveal kotak berjalan
+  let _busy         = false;     // lock saat animasi reveal kotak / cashout berjalan
   let _picks        = 0;         // jumlah kotak aman yang sudah dibuka
-  let _opened       = [];        // index kotak yang sudah dibuka (0-24)
+  let _opened       = [];        // index kotak yang sudah dibuka (0-total-1)
   let _safeTarget   = 0;         // ambang aman terjamin (dari predetermined result)
   let _isWinPath    = true;      // dari _gacha.result
   let _gameOver     = false;
 
+  let _modeKey      = null;      // 'easy' | 'hard'
+  let _mode         = null;      // object dari MODES
+  let _bombs        = 0;         // jumlah bomb aktual untuk sesi ini
+  let _gems         = 0;         // total - bombs
+
   /* ────────────────────────────────────
      MULTIPLIER TABLE (probabilitas survival asli)
+     Bergantung ke _mode.total & _gems yang aktif saat ini
   ──────────────────────────────────── */
   function multiplierAt(picks) {
     if (picks <= 0) return 1;
     let prob = 1;
     for (let i = 0; i < picks; i++) {
-      prob *= (GEMS - i) / (TOTAL - i);
+      prob *= (_gems - i) / (_mode.total - i);
     }
     return (1 / prob) * (1 - HOUSE_EDGE);
   }
 
   /* ────────────────────────────────────
-     INIT
+     INIT — tampilkan pilihan mode dulu
   ──────────────────────────────────── */
   function init(gacha, onResult) {
     _gacha      = gacha;
@@ -61,18 +71,66 @@ const Mines = (() => {
     _picks      = 0;
     _opened     = [];
     _gameOver   = false;
+    _modeKey    = null;
+    _mode       = null;
     _isWinPath  = gacha.result === 'win';
 
-    /* Tentukan ambang aman terjamin */
+    _renderModeSelect();
+  }
+
+  /* ────────────────────────────────────
+     STEP 1 — PILIH MODE GRID
+  ──────────────────────────────────── */
+  function _renderModeSelect() {
+    const area = document.createElement('div');
+    area.id        = 'gameArea';
+    area.className = 'game-area slide-in';
+
+    area.innerHTML = `
+      <div class="mines-card" id="minesCard">
+        <div class="slot-section-label">💣 Mines</div>
+        <div class="mines-hud">Bet: ${_bet} bet — pilih mode grid</div>
+
+        <div class="mines-mode-select" id="minesModeSelect">
+          <button class="mines-mode-btn" id="minesModeEasy" onclick="Mines.chooseMode('easy')">
+            <div class="mines-mode-title">${MODES.easy.label}</div>
+            <div class="mines-mode-sub">Lebih aman, payout lebih kecil</div>
+          </button>
+          <button class="mines-mode-btn" id="minesModeHard" onclick="Mines.chooseMode('hard')">
+            <div class="mines-mode-title">${MODES.hard.label}</div>
+            <div class="mines-mode-sub">Lebih berisiko, payout lebih besar</div>
+          </button>
+        </div>
+      </div>
+    `;
+
+    _mount(area);
+  }
+
+  /* Dipanggil dari tombol pilihan mode */
+  function chooseMode(key) {
+    if (_mode) return; // sudah pernah pilih, jangan dobel
+    const def = MODES[key];
+    if (!def) return;
+
+    _modeKey = key;
+    _mode    = def;
+    _bombs   = def.bombsMin === def.bombsMax
+      ? def.bombsMin
+      : def.bombsMin + Math.floor(Math.random() * (def.bombsMax - def.bombsMin + 1));
+    _gems    = _mode.total - _bombs;
+
+    /* Tentukan ambang aman terjamin, proporsional ke jumlah gem di mode ini */
+    const maxSafeWin = Math.max(1, _gems - 2); // jangan sampai >= seluruh gem
     _safeTarget = _isWinPath
-      ? 16 + Math.floor(Math.random() * 7)   // 16-22
-      : 1  + Math.floor(Math.random() * 4);  // 1-4
+      ? Math.min(maxSafeWin, 4 + Math.floor(Math.random() * Math.max(1, Math.floor(_gems * 0.6))))
+      : 1 + Math.floor(Math.random() * 4); // 1-4, sama seperti sebelumnya
 
     _render();
   }
 
   /* ────────────────────────────────────
-     RENDER HTML
+     STEP 2 — RENDER BOARD
   ──────────────────────────────────── */
   function _render() {
     const area = document.createElement('div');
@@ -80,18 +138,18 @@ const Mines = (() => {
     area.className = 'game-area slide-in';
 
     let cells = '';
-    for (let i = 0; i < TOTAL; i++) {
+    for (let i = 0; i < _mode.total; i++) {
       cells += `<button class="mines-cell" id="minesCell_${i}" onclick="Mines.reveal(${i})">❔</button>`;
     }
 
     area.innerHTML = `
       <div class="mines-card" id="minesCard">
-        <div class="slot-section-label">💣 Mines</div>
+        <div class="slot-section-label">💣 Mines — ${_mode.label}</div>
 
         <div class="mines-hud" id="minesHud">Bet: ${_bet} bet — pilih kotak</div>
         <div class="mines-multi" id="minesMulti">1.00x</div>
 
-        <div class="mines-grid" id="minesGrid">
+        <div class="mines-grid" id="minesGrid" style="grid-template-columns: repeat(${_mode.cols}, 1fr);">
           ${cells}
         </div>
 
@@ -101,6 +159,11 @@ const Mines = (() => {
       </div>
     `;
 
+    _mount(area);
+  }
+
+  /* Helper umum buat masukin elemen game ke DOM, dipakai mode-select & board */
+  function _mount(area) {
     const infoCard  = document.getElementById('gachaInfoCard');
     const existGame = document.getElementById('gameArea');
 
@@ -113,7 +176,7 @@ const Mines = (() => {
      REVEAL — klik satu kotak
   ──────────────────────────────────── */
   async function reveal(idx) {
-    if (_done || _busy || _gameOver) return;
+    if (_done || _busy || _gameOver || !_mode) return;
     if (_opened.includes(idx)) return;
 
     const cellEl = document.getElementById(`minesCell_${idx}`);
@@ -141,6 +204,7 @@ const Mines = (() => {
       cellEl.classList.add('mines-bomb');
       cellEl.textContent = '💣';
       await _revealAllOnLose(idx);
+      _busy = false; // reset state walau game sudah _done (housekeeping, tidak berdampak fungsional)
       _finish(false, 0);
       return;
     }
@@ -161,7 +225,8 @@ const Mines = (() => {
     window.setStatus(`💎 Aman! Multiplier ${mult.toFixed(2)}x`, true);
 
     /* Kalau semua gem sudah dibuka (menang maksimal), auto cashout */
-    if (_picks >= GEMS) {
+    if (_picks >= _gems) {
+      if (cashoutBtn) cashoutBtn.disabled = true; // cegah klik manual dobel selama jeda auto-cashout
       await new Promise(r => setTimeout(r, 500));
       await cashout();
       return;
@@ -208,7 +273,7 @@ const Mines = (() => {
   }
 
   function _disableAllCells() {
-    for (let i = 0; i < TOTAL; i++) {
+    for (let i = 0; i < _mode.total; i++) {
       const el = document.getElementById(`minesCell_${i}`);
       if (el) el.disabled = true;
     }
@@ -223,5 +288,5 @@ const Mines = (() => {
     _onResult(won, winRp);
   }
 
-  return { init, reveal, cashout };
+  return { init, chooseMode, reveal, cashout };
 })();
