@@ -184,7 +184,7 @@ function showTokenDashboard() {
 <div class="info-card-header">
       <span class="info-card-title">💳 Token Aktif</span>
       <div style="display: flex; gap: 8px; align-items: center;">
-        <span class="info-card-id">${currentToken.token}</span>
+        <span class="info-card-id">© DhikzxClouds</span>
         <button onclick="logoutToken()" style="background: rgba(207,92,92,0.1); border: 1px solid var(--lose-red); color: var(--lose-red); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; letter-spacing: 1px;">✕ LogOut</button>
       </div>
     </div>
