@@ -294,9 +294,12 @@ const Plinko = (() => {
       const maxT = segTimes[segTimes.length - 1];
       for (let i = 0; i < segTimes.length; i++) segTimes[i] /= maxT;
 
-      /* Bounce kecil saat mengenai pin */
-      let bounceOffset = 0;
-      let lastSeg = -1;
+      /* Bounce kecil saat mengenai pin — time-based, bukan frame-decay,
+         supaya konsisten di semua refresh rate dan terasa "natural" */
+      let lastSeg        = -1;
+      let bounceStart    = -1;
+      const BOUNCE_MS    = 150;   // durasi tiap micro-bounce
+      const BOUNCE_PEAK  = 4.5;   // tinggi bounce (px)
 
       function frame(now) {
         const elapsed  = now - startTime;
@@ -307,30 +310,43 @@ const Plinko = (() => {
 
         /* Cari segmen saat ini berdasarkan segTimes */
         let segIdx = 0;
-        for (let i = 0; i < segCount - 1; i++) {
+        for (let i = 0; i < segCount; i++) {
           if (progress >= segTimes[i]) segIdx = i;
         }
         segIdx = Math.min(segIdx, segCount - 1);
 
-        /* Deteksi benturan pin baru → trigger bounce */
+        /* Deteksi benturan pin baru → mulai bounce baru */
         if (segIdx !== lastSeg && segIdx > 0 && segIdx < segCount - 1) {
-          bounceOffset = 3.5; // pixel bounce ke atas saat kena pin
+          bounceStart = now;
           lastSeg = segIdx;
         }
-        /* Decay bounce */
-        bounceOffset *= 0.72;
+
+        /* Hitung bounce: kurva sinus (0 → peak → 0), halus, time-based */
+        let bounceOffset = 0;
+        let squash = 1;
+        if (bounceStart >= 0) {
+          const bt = (now - bounceStart) / BOUNCE_MS;
+          if (bt < 1) {
+            const shape   = Math.sin(bt * Math.PI); // 0 di awal/akhir, 1 di puncak
+            bounceOffset  = shape * BOUNCE_PEAK;
+            squash        = 1 - shape * 0.18;        // sedikit gepeng pas kena pin
+          } else {
+            bounceStart = -1;
+          }
+        }
 
         /* Interpolasi posisi dalam segmen dengan smoothStep */
         const t0 = segTimes[segIdx];
         const t1 = segTimes[Math.min(segIdx + 1, segCount)];
-        const segT = t1 > t0 ? _smoothStep((progress - t0) / (t1 - t0)) : 1;
+        const ratio = t1 > t0 ? Math.max(0, Math.min(1, (progress - t0) / (t1 - t0))) : 1;
+        const segT = _smoothStep(ratio);
 
         const a = waypoints[segIdx];
         const b = waypoints[segIdx + 1] || waypoints[segIdx];
         const ballX = a.x + (b.x - a.x) * segT;
         const ballY = a.y + (b.y - a.y) * segT - bounceOffset;
 
-        _drawBoard(ballX, ballY);
+        _drawBoard(ballX, ballY, squash);
 
         if (rawProgress < 1 && !_done) {
           _rafId = requestAnimationFrame(frame);
@@ -349,7 +365,7 @@ const Plinko = (() => {
     _drawBoard(BOARD_W / 2, 6);
   }
 
-  function _drawBoard(ballX, ballY) {
+  function _drawBoard(ballX, ballY, squash = 1) {
     const ctx = _ctx;
     if (!ctx) return;
     ctx.clearRect(0, 0, BOARD_W, BOARD_H);
@@ -380,14 +396,18 @@ const Plinko = (() => {
       ctx.fillText(m + 'x', x + slotW / 2, y + 19);
     }
 
-    /* Bola */
+    /* Bola — squash dikit pas kena pin biar ada kesan "impact" */
+    ctx.save();
+    ctx.translate(ballX, ballY);
+    ctx.scale(1 / squash, squash); // gepeng vertikal, melebar horizontal
     ctx.fillStyle = '#fff8dc';
     ctx.beginPath();
-    ctx.arc(ballX, ballY, BALL_R, 0, Math.PI * 2);
+    ctx.arc(0, 0, BALL_R, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#b8860b';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    ctx.restore();
   }
 
   return { init, drop };
