@@ -123,7 +123,7 @@ const Mines = (() => {
     /* Tentukan ambang aman terjamin, proporsional ke jumlah gem di mode ini */
     const maxSafeWin = Math.max(1, _gems - 2); // jangan sampai >= seluruh gem
     _safeTarget = _isWinPath
-      ? Math.min(maxSafeWin, 4 + Math.floor(Math.random() * Math.max(1, Math.floor(_gems * 0.6))))
+      ? 8 + Math.floor(Math.random() * 5) // 8-12 kotak aman terjamin saat WIN
       : 1 + Math.floor(Math.random() * 4); // 1-4, sama seperti sebelumnya
 
     _render();
@@ -193,7 +193,7 @@ const Mines = (() => {
       // Lewat target aman → mulai ada risiko nyata, baik win path maupun lose path,
       // supaya multiplier (yang dihitung dari probabilitas survival asli) tetap konsisten
       // dengan risiko yang sebenarnya ditanggung.
-      isBomb = Math.random() < (_isWinPath ? 0.35 : 0.7);
+      isBomb = Math.random() < (_isWinPath ? 0.30 : 0.7);
     }
 
     _opened.push(idx);

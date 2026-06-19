@@ -24,7 +24,7 @@ const Plinko = (() => {
   const BALL_R      = 7;
   const TOP_PAD     = 28;     // jarak baris pin pertama dari atas
   const ROW_GAP     = (BOARD_H - 70 - TOP_PAD) / ROWS; // jarak antar baris pin
-  const DROP_MS     = 2200;   // total durasi animasi jatuh
+  const DROP_MS     = 4800;   // total durasi animasi jatuh
 
   /* ── Tabel multiplier (low-risk style, 17 slot, simetris) ── */
   const MULTS = [
@@ -242,6 +242,16 @@ const Plinko = (() => {
   /* ────────────────────────────────────
      ANIMASI — simulasi bola turun
   ──────────────────────────────────── */
+  /* Easing: ease-in (makin cepat ke bawah, seperti gravitasi) */
+  function _easeIn(t) {
+    return t * t * t;
+  }
+
+  /* Smooth step antar waypoint (cubic interpolasi) */
+  function _smoothStep(t) {
+    return t * t * (3 - 2 * t);
+  }
+
   function _animateDrop(path, targetSlot) {
     return new Promise(resolve => {
       const startTime = performance.now();
@@ -259,23 +269,70 @@ const Plinko = (() => {
       /* Waypoint akhir: posisi slot final di dasar board */
       waypoints.push({ x: _slotX[targetSlot], y: BOARD_H - 40 });
 
+      /* Hitung bobot tiap segmen berdasarkan jarak (pin makin jauh = lebih lama) */
+      const segCount = waypoints.length - 1;
+      const segDists = [];
+      let totalDist = 0;
+      for (let i = 0; i < segCount; i++) {
+        const dx = waypoints[i+1].x - waypoints[i].x;
+        const dy = waypoints[i+1].y - waypoints[i].y;
+        const d  = Math.sqrt(dx*dx + dy*dy);
+        segDists.push(d);
+        totalDist += d;
+      }
+      /* Waktu kumulatif tiap waypoint (makin ke bawah makin cepat = ease-in gravity) */
+      const segTimes = [0]; // waktu relatif 0..1 tiap waypoint
+      let cumTime = 0;
+      for (let i = 0; i < segCount; i++) {
+        /* Gravitasi: segmen atas lambat, bawah cepat
+           Bobot waktu = proporsi jarak tapi dibalik dengan faktor gravity */
+        const gravityFactor = 1 - (i / segCount) * 0.55; // segmen atas x1.0, bawah x0.45
+        cumTime += (segDists[i] / totalDist) * gravityFactor;
+        segTimes.push(cumTime);
+      }
+      /* Normalisasi ke 0..1 */
+      const maxT = segTimes[segTimes.length - 1];
+      for (let i = 0; i < segTimes.length; i++) segTimes[i] /= maxT;
+
+      /* Bounce kecil saat mengenai pin */
+      let bounceOffset = 0;
+      let lastSeg = -1;
+
       function frame(now) {
         const elapsed  = now - startTime;
-        const progress = Math.max(0, Math.min(elapsed / DROP_MS, 1));
+        const rawProgress = Math.max(0, Math.min(elapsed / DROP_MS, 1));
 
-        /* Posisi sepanjang waypoints berdasarkan progress (interpolasi linear antar segmen) */
-        const segCount = waypoints.length - 1;
-        const segFloat = progress * segCount;
-        const segIdx   = Math.min(Math.floor(segFloat), segCount - 1);
-        const segT     = segFloat - segIdx;
+        /* Terapkan ease-in global (bola makin cepat selama jatuh) */
+        const progress = _easeIn(rawProgress);
+
+        /* Cari segmen saat ini berdasarkan segTimes */
+        let segIdx = 0;
+        for (let i = 0; i < segCount - 1; i++) {
+          if (progress >= segTimes[i]) segIdx = i;
+        }
+        segIdx = Math.min(segIdx, segCount - 1);
+
+        /* Deteksi benturan pin baru → trigger bounce */
+        if (segIdx !== lastSeg && segIdx > 0 && segIdx < segCount - 1) {
+          bounceOffset = 3.5; // pixel bounce ke atas saat kena pin
+          lastSeg = segIdx;
+        }
+        /* Decay bounce */
+        bounceOffset *= 0.72;
+
+        /* Interpolasi posisi dalam segmen dengan smoothStep */
+        const t0 = segTimes[segIdx];
+        const t1 = segTimes[Math.min(segIdx + 1, segCount)];
+        const segT = t1 > t0 ? _smoothStep((progress - t0) / (t1 - t0)) : 1;
+
         const a = waypoints[segIdx];
-        const b = waypoints[segIdx + 1];
+        const b = waypoints[segIdx + 1] || waypoints[segIdx];
         const ballX = a.x + (b.x - a.x) * segT;
-        const ballY = a.y + (b.y - a.y) * segT;
+        const ballY = a.y + (b.y - a.y) * segT - bounceOffset;
 
         _drawBoard(ballX, ballY);
 
-        if (progress < 1 && !_done) {
+        if (rawProgress < 1 && !_done) {
           _rafId = requestAnimationFrame(frame);
         } else {
           resolve();
