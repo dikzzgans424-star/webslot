@@ -174,9 +174,9 @@ function showTokenDashboard() {
   /* Label multiplier roulette tampilkan "2× / hijau 2.5×" */
   function gameMultiLabel(key) {
     if (key === 'airplane')  return 'Multiplier';
-    if (key === 'plinko')    return '0.3× – 10×';
-    if (key === 'mines')     return 'Cashout × (s/d 2254×)';
-    if (key === 'roulette')  return '2× / hijau 2.5×';
+    if (key === 'plinko')    return '0.5× – 8×';
+    if (key === 'mines')     return 'Cashout × (s/d)';
+    if (key === 'roulette')  return '2× / green 2.5×';
     return GAME_MULTIPLIER[key] + '×';
   }
 
@@ -184,7 +184,7 @@ function showTokenDashboard() {
 <div class="info-card-header">
       <span class="info-card-title">💳 Token Aktif</span>
       <div style="display: flex; gap: 8px; align-items: center;">
-        <span class="info-card-id">© DhikzxClouds</span>
+        <span class="info-card-id"></span>
         <button onclick="logoutToken()" style="background: rgba(207,92,92,0.1); border: 1px solid var(--lose-red); color: var(--lose-red); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 9px; font-weight: bold; letter-spacing: 1px;">✕ LogOut</button>
       </div>
     </div>
