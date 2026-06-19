@@ -125,11 +125,12 @@ const Mines = (() => {
     /* Tentukan apakah kotak ini bomb, berdasarkan predetermined path */
     let isBomb;
     if (_picks < _safeTarget) {
-      isBomb = false;
-    } else if (_isWinPath) {
-      isBomb = false; // win path: tidak pernah dipaksa kalah
+      isBomb = false; // dijamin aman sampai target
     } else {
-      isBomb = Math.random() < 0.7;
+      // Lewat target aman → mulai ada risiko nyata, baik win path maupun lose path,
+      // supaya multiplier (yang dihitung dari probabilitas survival asli) tetap konsisten
+      // dengan risiko yang sebenarnya ditanggung.
+      isBomb = Math.random() < (_isWinPath ? 0.35 : 0.7);
     }
 
     _opened.push(idx);

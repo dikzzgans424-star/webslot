@@ -238,7 +238,7 @@ const Plinko = (() => {
 
       function frame(now) {
         const elapsed  = now - startTime;
-        const progress = Math.min(elapsed / DROP_MS, 1);
+        const progress = Math.max(0, Math.min(elapsed / DROP_MS, 1));
 
         /* Posisi sepanjang waypoints berdasarkan progress (interpolasi linear antar segmen) */
         const segCount = waypoints.length - 1;
