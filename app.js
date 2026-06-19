@@ -24,7 +24,7 @@ const GAME_MULTIPLIER = {
 };
 
 const GAME_LABELS = {
-  reelsgird:   '🎰 Reels Grid',
+  reelsgird:   '🎰 Reels Gird',
   roulette:  '🎡 Roulette',
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
