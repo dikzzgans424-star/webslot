@@ -28,7 +28,7 @@ const Plinko = (() => {
 
   /* ── Tabel multiplier (low-risk style, 17 slot, simetris) ── */
   const MULTS = [
-    10, 3, 1.6, 1.4, 1.2, 1.1, 1, 0.5, 0.3, 0.5, 1, 1.1, 1.2, 1.4, 1.6, 3, 10
+    10, 5, 4, 3.5, 3, 2.5, 2, 1, 0.5, 1, 2, 2.5, 3, 3.5, 4, 5, 10
   ];
 
   /* ── State ── */
@@ -176,25 +176,24 @@ const Plinko = (() => {
       const pool = [
         // Merah 20 tiket: 10x kiri=4, 3x kiri=6, 3x kanan=6, 10x kanan=4
         0,0,0,0, 1,1,1,1,1,1, 15,15,15,15,15,15, 16,16,16,16,
-        // Abu-abu 5 tiket: 0.5=2, 0.3=1, 0.5=2
-        7,7, 8, 9,9,
-        // Kuning 75 tiket (10 slot, ~7-8 tiket tiap slot)
+        // Tengah-flank 2 tiket: 1x=1, 1x=1 (breakeven, aman muncul di pool menang)
+        7, 9,
+        // Kuning 78 tiket (10 slot, ~7-8 tiket tiap slot)
         2,2,2,2,2,2,2,2,
         3,3,3,3,3,3,3,3,
-        4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,
         5,5,5,5,5,5,5,5,
-        6,6,6,6,6,6,6,
-        10,10,10,10,10,10,10,
+        6,6,6,6,6,6,6,6,
+        10,10,10,10,10,10,10,10,
         11,11,11,11,11,11,11,11,
-        12,12,12,12,12,12,12,
-        13,13,13,13,13,13,13,13,
-        14,14,14,14,14,14,14,14,
+        12,12,12,12,12,12,12,12,
+        13,13,13,13,13,13,13,
+        14,14,14,14,14,14,14,
       ];
       return pool[Math.floor(Math.random() * pool.length)];
     } else {
-      // Lose: jatuh ke 0.3x / 0.5x (tengah abu-abu)
-      const losePool = [7, 7, 8, 9, 9];
-      return losePool[Math.floor(Math.random() * losePool.length)];
+      // Lose: cuma slot 8 (0.5x) yang beneran rugi di papan ini
+      return 8;
     }
   }
 
@@ -242,9 +241,10 @@ const Plinko = (() => {
   /* ────────────────────────────────────
      ANIMASI — simulasi bola turun
   ──────────────────────────────────── */
-  /* Easing: ease-in (makin cepat ke bawah, seperti gravitasi) */
+  /* Easing: dikasih initial velocity dikit biar nggak kelamaan "diem"
+     di awal, tapi tetap makin cepat ke bawah (gravity feel) */
   function _easeIn(t) {
-    return t * t * t;
+    return 0.32 * t + 0.68 * t * t;
   }
 
   /* Smooth step antar waypoint (cubic interpolasi) */
@@ -388,7 +388,9 @@ const Plinko = (() => {
       const m = MULTS[i];
       const x = i * slotW;
       const y = BOARD_H - 34;
-      ctx.fillStyle = m >= 3 ? '#e05555' : m >= 1 ? '#d4af5a' : '#5a5a5a';
+      const isRed  = i <= 1 || i >= SLOTS - 2;   // 2 slot terluar tiap sisi
+      const isGrey = i === 8;                     // cuma 1 slot tengah yang beneran rugi
+      ctx.fillStyle = isRed ? '#e05555' : isGrey ? '#5a5a5a' : '#d4af5a';
       ctx.fillRect(x + 1, y, slotW - 2, 30);
       ctx.fillStyle = '#1a1410';
       ctx.font = 'bold 10px sans-serif';
