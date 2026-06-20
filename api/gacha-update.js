@@ -78,11 +78,21 @@ function sanitizeHistoryEntry(entry, token) {
     if (game === "deposit"  && (result !== "win"  || change !== bet))   return null;
     if (game === "withdraw" && (result !== "lose" || change !== -bet))  return null;
   } else {
-    if (result === "lose" && change !== -bet)  return null;
-    if (result === "win"  && change <= 0)      return null;
+    if (result === "win" && change <= 0) return null;
     if (result === "win") {
       const maxChange = Math.ceil(bet * ((MAX_GAME_MULTIPLIER[game] ?? 2) - 1));
       if (change > maxChange) return null;
+    }
+    if (result === "lose") {
+      if (game === "plinko") {
+        /* FIX: Plinko beda dari game lain — slot "kalah" selalu mendarat
+           di 0.5x (lihat games/plinko.js, _pickTargetSlot lose-branch +
+           MULTS[8] = 0.5), bukan 0x. Jadi rugi cuma SEBAGIAN bet, bukan
+           penuh. change valid di rentang (-bet, 0), bukan harus persis -bet. */
+        if (change >= 0 || change < -bet) return null;
+      } else {
+        if (change !== -bet) return null;
+      }
     }
   }
 
