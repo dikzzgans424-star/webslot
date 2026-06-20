@@ -305,7 +305,7 @@ function openBetModal(game) {
       <div class="bet-modal-header">
         <div class="bet-modal-game">${label}</div>
         <div class="bet-modal-multi">${multiText}</div>
-        <button class="bet-modal-close" onclick="closeBetModal()">✕</button>
+        <button class="bet-modal-close" onclick="closeBetModal(true)">✕</button>
       </div>
 
       <div class="bet-modal-balance">
@@ -348,11 +348,20 @@ function openBetModal(game) {
      User sekarang bisa pilih shortcut dulu, baru ketik manual kalau perlu. */
 }
 
-function closeBetModal() {
+function closeBetModal(restoreDashboard = false) {
   const modal = document.getElementById('betModal');
   if (!modal) return;
   modal.classList.remove('show');
   setTimeout(() => modal.remove(), 250);
+
+  /* FIX: kalau modal ditutup pakai tombol ✕ (batal, bukan lanjut main),
+     dashboard yang sempat disembunyikan saat "Main Lagi" harus
+     dimunculkan lagi. Tanpa ini, UI jadi blank karena dashboard
+     ke-stuck display:none dan gak ada game/result panel pengganti. */
+  if (restoreDashboard) {
+    const dashboard = document.getElementById('tokenDashboard');
+    if (dashboard) dashboard.style.display = '';
+  }
 }
 
 function setModalBet(amount) {
@@ -432,6 +441,36 @@ function submitBetModal() {
 let _currentBet    = 0;
 let _currentRollId = null;  /* FIX: rollId dari server, untuk verifikasi saat simpan */
 
+/* Placeholder "waiting" yang tampil di posisi slot/gameArea selagi
+   nunggu server roll. Pakai id 'gameArea' sama seperti game module,
+   jadi otomatis ke-replace begitu game asli mount. */
+function _showWaitingPlaceholder() {
+  const old = document.getElementById('gameArea');
+  if (old) old.remove();
+
+  const area = document.createElement('div');
+  area.id        = 'gameArea';
+  area.className = 'game-area slide-in';
+  area.innerHTML = `
+    <div class="slot-multi-card" style="display:flex; flex-direction:column; align-items:center; gap:14px; padding:40px 20px;">
+      <div class="waiting-spinner" style="width:42px; height:42px; border:4px solid rgba(255,255,255,0.15); border-top-color:#fff; border-radius:50%; animation:waitingSpin 0.8s linear infinite;"></div>
+      <div class="slot-section-label" style="margin:0;">🎲 Menyiapkan game...</div>
+    </div>
+    <style>
+      @keyframes waitingSpin { to { transform: rotate(360deg); } }
+    </style>
+  `;
+
+  const infoCard = document.getElementById('gachaInfoCard');
+  if (infoCard) infoCard.replaceWith(area);
+  else document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+}
+
+function _removeWaitingPlaceholder() {
+  const el = document.getElementById('gameArea');
+  if (el) el.remove();
+}
+
 async function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
   if (PREMIUM_ONLY_GAMES.has(_selectedGame) && !currentToken.isPremium) {
@@ -452,6 +491,13 @@ async function _launchGame() {
 
   const dashboard = document.getElementById('tokenDashboard');
   if (dashboard) dashboard.style.display = 'none';
+
+  /* FIX: tampilkan placeholder "waiting" persis di posisi slot/game-area
+     (bukan cuma teks status) selagi nunggu server roll. Pakai id
+     'gameArea' yang sama dipakai semua game module — begitu
+     gameModule.init() mount game asli, placeholder ini otomatis
+     ke-replace (lihat fungsi _mount di tiap games/*.js). */
+  _showWaitingPlaceholder();
 
   const betRp   = betToRp(_currentBet);
   const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines')
@@ -480,6 +526,7 @@ async function _launchGame() {
   } catch (err) {
     _gameActive = false;
     setTokenSlotMode('hidden');
+    _removeWaitingPlaceholder();
     setStatus('❌ ' + err.message);
     if (dashboard) dashboard.style.display = '';
     return;
@@ -503,6 +550,7 @@ async function _launchGame() {
     /* Jangan biarkan _gameActive stuck true jika init() error */
     _gameActive = false;
     setTokenSlotMode('hidden');
+    _removeWaitingPlaceholder();
     console.error('Game init error:', err);
     setStatus('❌ Gagal memuat game: ' + err.message);
     if (dashboard) dashboard.style.display = '';
