@@ -34,6 +34,9 @@ const GAME_LABELS = {
   mines:     '💣 Mines',
 };
 
+/* Game yang cuma bisa dimainkan token premium */
+const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines']);
+
 const GAMES = {
   reelsgird:   () => ReelsGrid,
   roulette:  () => Roulette,
@@ -99,13 +102,20 @@ async function getTokenData() {
   };
 }
 
-async function saveTokenData(data, sha) {
+/* FIX poin 1 & 2: kirim DELTA saldo + history entry aja, bukan kirim ulang
+   seluruh array tokens. Server (gacha-update.js) yang akan apply $inc
+   secara atomik dan validasi saldo nggak boleh minus. Ini menghilangkan
+   race condition read-modify-write dan memindahkan validasi ke server. */
+async function applyGameResult(token, change, historyEntry) {
   const res = await fetch('/.netlify/functions/gacha-update', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ data, sha })
+    body:    JSON.stringify({ token, change, historyEntry })
   });
-  if (!res.ok) throw new Error('Gagal menyimpan data');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal menyimpan data');
+  }
 }
 
 /* ────────────────────────────────────────
@@ -200,13 +210,15 @@ function showTokenDashboard() {
     <div class="token-game-section">
       <div class="token-section-label">PILIH GAME</div>
       <div class="token-game-grid">
-        ${Object.entries(GAME_LABELS).map(([key, label]) => `
-          <button class="token-game-btn" id="gameBtn_${key}"
-                  onclick="selectGame('${key}')">
-            ${label}
-            <span class="token-game-multi">${gameMultiLabel(key)}</span>
+        ${Object.entries(GAME_LABELS).map(([key, label]) => {
+          const locked = PREMIUM_ONLY_GAMES.has(key) && !currentToken.isPremium;
+          return `
+          <button class="token-game-btn ${locked ? 'locked' : ''}" id="gameBtn_${key}"
+                  onclick="selectGame('${key}')" ${locked ? 'title="Khusus token Premium"' : ''}>
+            ${label} ${locked ? '🔒' : ''}
+            <span class="token-game-multi">${locked ? 'Premium only' : gameMultiLabel(key)}</span>
           </button>
-        `).join('')}
+        `;}).join('')}
       </div>
     </div>
 
@@ -224,6 +236,10 @@ function showTokenDashboard() {
 let _selectedGame = null;
 
 function selectGame(game) {
+  if (PREMIUM_ONLY_GAMES.has(game) && !currentToken?.isPremium) {
+    setStatus('🔒 Game ini khusus token Premium.');
+    return;
+  }
   _selectedGame = game;
   openBetModal(game);
 }
@@ -367,6 +383,10 @@ let _currentBet = 0;
 
 function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
+  if (PREMIUM_ONLY_GAMES.has(_selectedGame) && !currentToken.isPremium) {
+    setStatus('🔒 Game ini khusus token Premium.');
+    return;
+  }
   if (_currentBet < 1 || _currentBet > currentToken.balance) {
     setStatus('⚠ Jumlah bet tidak valid.');
     return;
@@ -458,29 +478,24 @@ async function onGameResult(isWin, moneyWon) {
     at:     Date.now(),
   };
 
-  currentToken.balance = newBalance;
-  if (!currentToken.history) currentToken.history = [];
-  currentToken.history.push(histEntry);
-
   setStatus('💾 Menyimpan hasil...', true);
   let saveOk = false;
   try {
-    const freshFile = await getTokenData();
-    const tokens    = freshFile.data.tokens || [];
-    const idx       = tokens.findIndex(t => t.token === currentToken.token);
-    if (idx !== -1) {
-      tokens[idx].balance = newBalance;
-      if (!tokens[idx].history) tokens[idx].history = [];
-      tokens[idx].history.push(histEntry);
-    }
-    await saveTokenData(freshFile.data, freshFile.sha);
+    /* FIX poin 1 & 2: server yang validasi & apply secara atomik.
+       Kalau ditolak (409 = saldo nggak cukup/race condition), JANGAN
+       update currentToken.balance secara lokal — biar nggak nunjukin
+       saldo palsu ke user. Suruh dia logout/login ulang buat sync. */
+    await applyGameResult(currentToken.token, balanceChange, histEntry);
+    currentToken.balance = newBalance;
+    if (!currentToken.history) currentToken.history = [];
+    currentToken.history.push(histEntry);
     saveOk = true;
   } catch (err) {
     console.error('Save error:', err);
   }
 
   hideGame();
-  showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk);
+  showResultInline(isWin, moneyWon, balanceChange, saveOk ? newBalance : currentToken.balance, saveOk);
 }
 
 /* ────────────────────────────────────────
@@ -499,7 +514,7 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
 
   const saveNote = saveOk
     ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
-    : `<div class="result-save-err">⚠ Gagal menyimpan — screenshot ini & hubungi admin (${currentToken?.token})</div>`;
+    : `<div class="result-save-err">⚠ Gagal menyimpan (saldo tidak sinkron) — coba logout &amp; login ulang token untuk cek saldo terbaru. Hubungi admin kalau masih bermasalah (${currentToken?.token})</div>`;
 
   area.innerHTML = `
     <div class="result-panel ${panelClass}">
