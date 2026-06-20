@@ -11,6 +11,33 @@ let currentFile  = null;
 let currentToken = null;
 let _gameActive  = false;
 
+/* HARUS SAMA dengan MAX_ABS_CHANGE di netlify/functions/gacha-update.js
+   -> kalau diubah di server, ubah juga di sini biar validasinya nyambung. */
+const MAX_ABS_CHANGE = 1000000000000000;
+
+/* Multiplier TERBESAR yang mungkin kejadian per game (worst case buat
+   server / best case buat user), dipakai buat cegah bet yang potensi
+   kemenangannya bisa lebih besar dari MAX_ABS_CHANGE.
+   - reelsgird/coinflip/horserace/blackjack/roulette: tetap 2x
+   - airplane  : crash maksimum ~8.5x, kena pajak 5% -> ~8.075x
+   - plinko    : slot tertinggi di tabel MULTS = 8x
+   - mines     : MULT_CAP = 15x */
+const MAX_GAME_MULTIPLIER = {
+  reelsgird: 2,
+  roulette:  2,
+  coinflip:  2,
+  horserace: 2,
+  blackjack: 2,
+  airplane:  8.5 * 0.95,
+  plinko:    8,
+  mines:     15,
+};
+
+function maxPossibleChange(game, bet) {
+  const mult = MAX_GAME_MULTIPLIER[game] || 2;
+  return Math.ceil(bet * (mult - 1));
+}
+
 /* ── Multiplier per game ── */
 const GAME_MULTIPLIER = {
   reelsgird:   2,
@@ -91,9 +118,14 @@ function betToRp(bet) { return bet * 1000; }
 /* ────────────────────────────────────────
    API — GitHub via Netlify Functions
 ──────────────────────────────────────── */
-async function getTokenData() {
-  const res = await fetch('/.netlify/functions/gacha?_=' + Date.now());
-  if (!res.ok) throw new Error('Gagal mengambil data dari server');
+async function getTokenData(token) {
+  /* FIX: kirim token sebagai query param supaya server hanya return
+     data milik token itu saja — bukan expose semua token ke semua user. */
+  const res = await fetch('/.netlify/functions/gacha?token=' + encodeURIComponent(token) + '&_=' + Date.now());
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Gagal mengambil data dari server');
+  }
   const json = await res.json();
   if (!json.content) throw new Error(json.message || 'Content tidak ditemukan');
   return {
@@ -106,11 +138,13 @@ async function getTokenData() {
    seluruh array tokens. Server (gacha-update.js) yang akan apply $inc
    secara atomik dan validasi saldo nggak boleh minus. Ini menghilangkan
    race condition read-modify-write dan memindahkan validasi ke server. */
-async function applyGameResult(token, change, historyEntry) {
+async function applyGameResult(token, change, historyEntry, rollId) {
+  /* FIX: sertakan rollId agar server bisa verifikasi hasil cocok dengan
+     roll yang sudah dikeluarkan sebelumnya. */
   const res = await fetch('/.netlify/functions/gacha-update', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ token, change, historyEntry })
+    body:    JSON.stringify({ token, change, historyEntry, rollId })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -136,10 +170,13 @@ async function startSpin() {
   setStatus('Mengecek token...', true);
 
   try {
-    currentFile  = await getTokenData();
-    currentToken = (currentFile.data.tokens || []).find(
-      t => t.token.toUpperCase() === token
-    );
+    /* FIX: kirim token ke server, server hanya return data token itu saja */
+    currentFile  = await getTokenData(token);
+    currentToken = (currentFile.data.tokens || [])[0];
+    /* Validasi ulang: pastikan token yang dikembalikan cocok */
+    if (currentToken && currentToken.token.toUpperCase() !== token) {
+      currentToken = null;
+    }
 
     if (!currentToken) { setStatus('❌ Token tidak ditemukan'); btn.disabled = false; return; }
     if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); btn.disabled = false; return; }
@@ -306,7 +343,9 @@ function openBetModal(game) {
 
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add('show'));
-  setTimeout(() => { const inp = document.getElementById('betModalInput'); if (inp) inp.focus(); }, 150);
+  /* FIX: jangan auto-focus input -> kalau di-focus, keyboard mobile
+     langsung muncul dan nutupin tombol shortcut (10/25/50/100/½).
+     User sekarang bisa pilih shortcut dulu, baru ketik manual kalau perlu. */
 }
 
 function closeBetModal() {
@@ -331,7 +370,13 @@ function onModalBetInput() {
   const preview  = document.getElementById('betModalPreview');
   const startBtn = document.getElementById('betModalStart');
 
-  const valid = val >= 1 && val <= currentToken.balance;
+  /* FIX: cegah bet yang potensi kemenangan maksimalnya bisa lebih besar
+     dari MAX_ABS_CHANGE -> kalau dibiarkan, nanti game-nya kelar tapi
+     hasil GAGAL disimpan ke server (server nolak, balik 400). Mending
+     dicegah dari awal di bet modal-nya. */
+  const overLimit = val >= 1 && maxPossibleChange(_selectedGame, val) > MAX_ABS_CHANGE;
+
+  const valid = val >= 1 && val <= currentToken.balance && !overLimit;
   if (startBtn) startBtn.disabled = !valid;
 
   if (!preview) return;
@@ -341,6 +386,11 @@ function onModalBetInput() {
   }
   if (val > currentToken.balance) {
     preview.textContent = '⚠ Melebihi saldo token'; preview.className = 'bet-modal-preview warn'; return;
+  }
+  if (overLimit) {
+    preview.textContent = '⚠ Bet terlalu besar — potensi kemenangan melebihi limit sistem';
+    preview.className = 'bet-modal-preview warn';
+    return;
   }
 
   if (_selectedGame === 'airplane') {
@@ -379,7 +429,8 @@ function submitBetModal() {
 /* ────────────────────────────────────────
    STEP 3 — LAUNCH GAME
 ──────────────────────────────────────── */
-let _currentBet = 0;
+let _currentBet    = 0;
+let _currentRollId = null;  /* FIX: rollId dari server, untuk verifikasi saat simpan */
 
 function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
@@ -389,6 +440,10 @@ function _launchGame() {
   }
   if (_currentBet < 1 || _currentBet > currentToken.balance) {
     setStatus('⚠ Jumlah bet tidak valid.');
+    return;
+  }
+  if (maxPossibleChange(_selectedGame, _currentBet) > MAX_ABS_CHANGE) {
+    setStatus('⚠ Bet terlalu besar, potensi kemenangan melebihi limit sistem.');
     return;
   }
 
@@ -403,27 +458,51 @@ function _launchGame() {
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
-  /* Tentukan hasil win/lose di sini (satu sumber kebenaran),
-     lalu kirim ke game module via gameObj.result */
-  const _winChance = (currentToken.isPremium ? 0.45 : 0.35);
-  const _isWin     = Math.random() < _winChance;
+  /* FIX: hasil win/lose sekarang ditentukan server via endpoint baru.
+     Client request dulu ke /gacha-roll, server yang roll RNG dan return
+     hasilnya. Ini mencegah manipulasi result lewat DevTools. */
+  let _rollResult;
+  try {
+    const rollRes = await fetch('/.netlify/functions/gacha-roll', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        token:   currentToken.token,
+        game:    _selectedGame,
+        bet:     _currentBet,
+      })
+    });
+    if (!rollRes.ok) {
+      const e = await rollRes.json().catch(() => ({}));
+      throw new Error(e.error || 'Gagal memulai game');
+    }
+    _rollResult = await rollRes.json();
+  } catch (err) {
+    _gameActive = false;
+    setTokenSlotMode('hidden');
+    setStatus('❌ ' + err.message);
+    if (dashboard) dashboard.style.display = '';
+    return;
+  }
 
+  _currentRollId = _rollResult.rollId;  /* simpan di luar gameObj juga */
   const gameObj = {
     token:     currentToken.token,
     type:      _selectedGame,
     money:     prizeRp,
     betAmount: _currentBet,
     isPremium: currentToken.isPremium || false,
-    result:    _isWin ? 'win' : 'lose',   /* ← FIX Bug #2 & #4 */
+    result:    _rollResult.result,   /* 'win' | 'lose' — dari server */
+    rollId:    _rollResult.rollId,   /* ID unik untuk verifikasi saat simpan hasil */
   };
 
   try {
     const gameModule = (GAMES[_selectedGame] ?? GAMES['reelsgird'])();
     gameModule.init(gameObj, onGameResult);
   } catch (err) {
-    /* FIX Bug #7: jangan biarkan _gameActive stuck true jika init() error */
+    /* Jangan biarkan _gameActive stuck true jika init() error */
     _gameActive = false;
-    setTokenSlotMode('hidden'); // Karena kembali ke dashboard, harus di-hide
+    setTokenSlotMode('hidden');
     console.error('Game init error:', err);
     setStatus('❌ Gagal memuat game: ' + err.message);
     if (dashboard) dashboard.style.display = '';
@@ -485,7 +564,7 @@ async function onGameResult(isWin, moneyWon) {
        Kalau ditolak (409 = saldo nggak cukup/race condition), JANGAN
        update currentToken.balance secara lokal — biar nggak nunjukin
        saldo palsu ke user. Suruh dia logout/login ulang buat sync. */
-    await applyGameResult(currentToken.token, balanceChange, histEntry);
+    await applyGameResult(currentToken.token, balanceChange, histEntry, _currentRollId);
     currentToken.balance = newBalance;
     if (!currentToken.history) currentToken.history = [];
     currentToken.history.push(histEntry);
@@ -542,9 +621,10 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
 
       <div class="result-action-row">
         ${newBalance > 0
-          ? `<button class="start-game-btn" onclick="continuePlaying()">🎮 &nbsp;Main Lagi</button>`
+          ? `<button class="start-game-btn" onclick="playAgainSameGame()">🎮 &nbsp;Main Lagi</button>`
           : `<div class="token-empty-msg">Saldo token habis!</div>`
         }
+        <button class="back-dashboard-btn" onclick="backToDashboard()">🏠 &nbsp;Back Dashboard</button>
       </div>
     </div>
   `;
@@ -552,17 +632,30 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   document.getElementById('tokenInputSlot').insertAdjacentElement('afterend', area);
 }
 
-function continuePlaying() {
-  hideGame();
-  showTokenDashboard();
+/* "Main Lagi" -> langsung balik ke bet modal game yang sama
+   (skip dashboard). "Back Dashboard" -> pakai backToDashboard() yang
+   udah ada di atas. */
+function playAgainSameGame() {
+  hideGame(); // buang result panel
+  if (!_selectedGame || !currentToken || currentToken.balance < 1) {
+    backToDashboard();
+    return;
+  }
+  selectGame(_selectedGame); // re-validasi premium/saldo, lalu buka bet modal
 }
 
 
 /* ────────────────────────────────────────
    EVENTS
 ──────────────────────────────────────── */
-document.getElementById('gachaId').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startSpin();
+/* FIX: pakai event 'submit' dari <form>, bukan onclick/keydown manual.
+   Ini PENTING biar browser nyimpen value yang pernah diketik ke
+   autocomplete history (Chrome cuma nyimpen form-history pas ada
+   event submit yang ke-trigger, walau di-preventDefault). Enter di
+   input & klik tombol "Cek Token" otomatis sama-sama men-trigger ini. */
+document.getElementById('tokenForm').addEventListener('submit', e => {
+  e.preventDefault();
+  startSpin();
 });
 
 /* ────────────────────────────────────────

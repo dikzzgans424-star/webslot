@@ -24,17 +24,20 @@
   <div id="tokenInputSlot">
     <div class="glass-card" id="tokenInputCard">
       <span class="input-label">Masukkan Token</span>
-      <div class="input-row">
-        <div class="input-wrap">
-          <input
-            id="gachaId"
-            type="text"
-            placeholder="TKN-XXXXXXXXXXXX"
-            autocomplete="off"
-            spellcheck="false">
+      <form id="tokenForm" autocomplete="on">
+        <div class="input-row">
+          <div class="input-wrap">
+            <input
+              id="gachaId"
+              name="gachaToken"
+              type="text"
+              placeholder="TKN-XXXXXXXXXXXX"
+              autocomplete="on"
+              spellcheck="false">
+          </div>
+          <button id="spinBtn" type="submit">Cek Token</button>
         </div>
-        <button id="spinBtn" onclick="startSpin()">Cek Token</button>
-      </div>
+      </form>
     </div>
 
     <button id="backToDashboardBtn" class="back-dashboard-btn" onclick="backToDashboard()" style="display:none;">
