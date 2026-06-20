@@ -34,14 +34,6 @@ function isInternalRequest(req) {
 
 const MAX_ABS_CHANGE = 1000000000000000;
 
-/* Rate limiting sederhana in-memory (per token, per function instance).
-   Vercel serverless function bisa spawn banyak instance berbeda (cold start,
-   region, concurrency), jadi ini bukan solusi sempurna — cukup untuk cegah
-   spam burst dari satu klien di instance yang sama.
-   Limit: maks 1 request per 3 detik per token. */
-const _lastRequest = new Map();
-const RATE_LIMIT_MS = 3000;
-
 /* Daftar field yang diizinkan ada di historyEntry — tolak field asing */
 const ALLOWED_HISTORY_FIELDS = new Set(["game", "bet", "result", "change", "at"]);
 const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines"]);
@@ -196,23 +188,6 @@ export default async function handler(req, res) {
       if (!rollId || typeof rollId !== "string" ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(rollId)) {
         return res.status(400).json({ error: "rollId tidak valid" });
-      }
-    }
-
-    /* FIX: Rate limiting per token — hanya berlaku untuk request dari web
-       (identifikasi via `token`, bukan `owner` yang dari bot). */
-    if (token) {
-      const now = Date.now();
-      const last = _lastRequest.get(token) || 0;
-      if (now - last < RATE_LIMIT_MS) {
-        return res.status(429).json({ error: "Terlalu banyak request, tunggu sebentar" });
-      }
-      _lastRequest.set(token, now);
-      /* Bersihkan map kalau terlalu besar (jaga memory) */
-      if (_lastRequest.size > 5000) {
-        for (const [k, v] of _lastRequest) {
-          if (now - v > RATE_LIMIT_MS * 10) _lastRequest.delete(k);
-        }
       }
     }
 
