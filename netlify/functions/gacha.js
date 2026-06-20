@@ -1,17 +1,16 @@
 import { MongoClient } from "mongodb";
 
-const uri = process.env.MONGODB_URI;
-const DB_NAME = "miwa";
-const COLLECTION = "gachadata";
-const DOC_ID = "main";   // dokumen tunggal, id tetap "main"
+const uri            = process.env.MONGODB_URI;
+const INTERNAL_KEY   = process.env.INTERNAL_API_KEY; // secret key khusus bot WA
+const DB_NAME        = "miwa";
+const COLLECTION     = "gachadata";
+const DOC_ID         = "main";
 
 let cachedClient = null;
 
 async function getClient() {
   if (cachedClient) {
     try {
-      /* Cek koneksi masih hidup. Kalau topology udah closed/invalid,
-         ini akan throw dan kita bikin client baru di bawah. */
       await cachedClient.db("admin").command({ ping: 1 });
       return cachedClient;
     } catch (e) {
@@ -24,45 +23,82 @@ async function getClient() {
   return cachedClient;
 }
 
-export async function handler() {
+export async function handler(event) {
   try {
     if (!uri) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "MONGODB_URI tidak ditemukan" })
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: "MONGODB_URI tidak ditemukan" }) };
     }
 
-    const client = await getClient();
-    const col = client.db(DB_NAME).collection(COLLECTION);
+    const params     = new URLSearchParams(event.queryStringParameters || {});
+    const tokenParam = (params.get("token") || "").trim().toUpperCase();
+    const ownerParam = (params.get("owner") || "").trim();
 
-    let doc = await col.findOne({ _id: DOC_ID });
+    /* ── MODE A: lookup by TOKEN (dipakai web app) ──────────────────
+       Tidak perlu auth — token adalah secret milik user itu sendiri. */
+    if (tokenParam) {
+      const client = await getClient();
+      const col    = client.db(DB_NAME).collection(COLLECTION);
 
-    /* Kalau belum ada dokumen sama sekali (pertama kali dipakai),
-       buat dokumen kosong otomatis */
-    if (!doc) {
-      doc = { _id: DOC_ID, tokens: [] };
-      await col.insertOne(doc);
+      const doc = await col.findOne(
+        { _id: DOC_ID, "tokens.token": tokenParam },
+        { projection: { "tokens.$": 1 } }
+      );
+
+      if (!doc || !doc.tokens?.[0]) {
+        return { statusCode: 404, body: JSON.stringify({ error: "Token tidak ditemukan" }) };
+      }
+
+      const tokenData = doc.tokens[0];
+      const content   = Buffer.from(
+        JSON.stringify({ tokens: [tokenData] }, null, 2)
+      ).toString("base64");
+
+      return { statusCode: 200, body: JSON.stringify({ content, sha: "0" }) };
     }
 
-    /* Samakan bentuk respons dengan sistem lama (yang formatnya base64+sha)
-       supaya app.js TIDAK perlu diubah sama sekali */
-    const content = Buffer.from(
-      JSON.stringify({ tokens: doc.tokens || [] }, null, 2)
-    ).toString("base64");
+    /* ── MODE B: lookup by OWNER (dipakai bot WA internal) ──────────
+       Wajib sertakan header X-Internal-Key yang cocok dengan env var
+       INTERNAL_API_KEY. Tanpa itu, request ditolak 401.
+       Ini mencegah user biasa lookup data orang lain via owner ID. */
+    if (ownerParam) {
+      const incomingKey = (event.headers?.["x-internal-key"] || "").trim();
 
+      if (!INTERNAL_KEY) {
+        /* Kalau env var tidak di-set, blokir semua akses by owner
+           daripada expose data secara tidak sengaja */
+        return { statusCode: 503, body: JSON.stringify({ error: "Lookup by owner tidak dikonfigurasi" }) };
+      }
+      if (!incomingKey || incomingKey !== INTERNAL_KEY) {
+        return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
+      }
+
+      const client = await getClient();
+      const col    = client.db(DB_NAME).collection(COLLECTION);
+
+      const doc = await col.findOne(
+        { _id: DOC_ID, "tokens.owner": ownerParam },
+        { projection: { "tokens.$": 1 } }
+      );
+
+      if (!doc || !doc.tokens?.[0]) {
+        return { statusCode: 404, body: JSON.stringify({ error: "Token tidak ditemukan" }) };
+      }
+
+      const tokenData = doc.tokens[0];
+      const content   = Buffer.from(
+        JSON.stringify({ tokens: [tokenData] }, null, 2)
+      ).toString("base64");
+
+      return { statusCode: 200, body: JSON.stringify({ content, sha: "0" }) };
+    }
+
+    /* Tidak ada token maupun owner → tolak */
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        content,
-        sha: doc._rev || "0"   // dipakai cuma sebagai placeholder, MongoDB tidak butuh SHA
-      })
+      statusCode: 400,
+      body: JSON.stringify({ error: "Parameter token atau owner diperlukan" })
     };
 
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message })
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 }

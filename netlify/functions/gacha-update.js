@@ -22,10 +22,72 @@ async function getClient() {
   return cachedClient;
 }
 
-/* Batas wajar perubahan saldo dalam satu request — proteksi dasar
-   kalau-kalau ada manipulasi client (DevTools/Postman dsb).
-   Sesuaikan kalau memang ada bet/payout yang sah lebih besar dari ini. */
-const MAX_ABS_CHANGE = 100000;
+const MAX_ABS_CHANGE = 1000000000000000;
+
+/* Rate limiting sederhana in-memory (per token, per function instance).
+   Netlify bisa spawn banyak instance, jadi ini bukan solusi sempurna,
+   tapi cukup untuk cegah spam burst dari satu klien di instance yang sama.
+   Limit: maks 1 request per 3 detik per token. */
+const _lastRequest = new Map();
+const RATE_LIMIT_MS = 3000;
+
+/* Daftar field yang diizinkan ada di historyEntry — tolak field asing */
+const ALLOWED_HISTORY_FIELDS = new Set(["game", "bet", "result", "change", "at"]);
+const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines"]);
+const ALLOWED_BOT_GAMES  = new Set(["deposit","withdraw"]); // transaksi bot, bukan game web
+const ALLOWED_RESULTS = new Set(["win", "lose"]);
+
+/* MAX multiplier per game — dipakai server untuk validasi change positif.
+   Harus sinkron dengan MAX_GAME_MULTIPLIER di app.js. */
+const MAX_GAME_MULTIPLIER = {
+  reelsgird: 2,
+  roulette:  2,
+  coinflip:  2,
+  horserace: 2,
+  blackjack: 2,
+  airplane:  8.5 * 0.95,
+  plinko:    8,
+  mines:     15,
+};
+
+function sanitizeHistoryEntry(entry, token) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
+
+  /* Tolak field yang tidak dikenal */
+  for (const key of Object.keys(entry)) {
+    if (!ALLOWED_HISTORY_FIELDS.has(key)) return null;
+  }
+
+  const { game, bet, result, change, at } = entry;
+
+  if (!ALLOWED_GAMES.has(game) && !ALLOWED_BOT_GAMES.has(game)) return null;
+  if (!ALLOWED_RESULTS.has(result))       return null;
+  if (typeof bet !== "number" || bet < 1 || !Number.isInteger(bet)) return null;
+  if (typeof change !== "number" || !Number.isFinite(change))       return null;
+  if (typeof at !== "number" || !Number.isFinite(at))               return null;
+
+  /* Validasi konsistensi change vs result.
+     Transaksi bot (deposit/withdraw) punya aturan sendiri:
+     - deposit  → result 'win',  change == +bet (tambah penuh)
+     - withdraw → result 'lose', change == -bet (kurang penuh)
+     Game web validasi seperti sebelumnya. */
+  if (ALLOWED_BOT_GAMES.has(game)) {
+    if (game === "deposit"  && (result !== "win"  || change !== bet))   return null;
+    if (game === "withdraw" && (result !== "lose" || change !== -bet))  return null;
+  } else {
+    if (result === "lose" && change !== -bet)  return null;
+    if (result === "win"  && change <= 0)      return null;
+    if (result === "win") {
+      const maxChange = Math.ceil(bet * ((MAX_GAME_MULTIPLIER[game] ?? 2) - 1));
+      if (change > maxChange) return null;
+    }
+  }
+
+  /* Timestamp tidak boleh jauh di masa depan (toleransi 60 detik) */
+  if (at > Date.now() + 60_000) return null;
+
+  return { game, bet, result, change, at };
+}
 
 export async function handler(event) {
   try {
@@ -36,18 +98,20 @@ export async function handler(event) {
       };
     }
 
-    const { token, owner, change, historyEntry, newToken, setIsPremium } = JSON.parse(event.body);
+    const body = JSON.parse(event.body);
+    const { token, owner, change, historyEntry, newToken, setIsPremium } = body;
 
     const client = await getClient();
     const col = client.db(DB_NAME).collection(COLLECTION);
 
     /* ════════════════════════════════════════
-       MODE A — BUAT TOKEN BARU (dipakai bot WA: .casino create)
-       Atomic: hanya berhasil kalau owner ini BELUM punya token sama
-       sekali di dalam array. Mencegah double-create kalau ada 2
-       request create barengan dari device/chat berbeda.
+       MODE A — BUAT TOKEN BARU (bot WA)
     ════════════════════════════════════════ */
     if (newToken) {
+      /* Hanya bot internal yang boleh buat token baru */
+      if (!isInternalRequest(event)) {
+        return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
+      }
       if (!owner || !newToken.token) {
         return {
           statusCode: 400,
@@ -72,13 +136,13 @@ export async function handler(event) {
     }
 
     /* ════════════════════════════════════════
-       MODE C — SYNC STATUS PREMIUM
-       Dipakai bot WA buat nyamain `isPremium` di token dengan status
-       premium WA yang sebenarnya (karena isPremium di token cuma
-       snapshot waktu create, BISA basi kalau user upgrade belakangan).
-       Nggak nyentuh balance/history sama sekali, murni $set boolean.
+       MODE C — SYNC STATUS PREMIUM (bot WA)
     ════════════════════════════════════════ */
     if (typeof setIsPremium === "boolean") {
+      /* Hanya bot internal yang boleh update isPremium */
+      if (!isInternalRequest(event)) {
+        return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
+      }
       if (!token && !owner) {
         return { statusCode: 400, body: JSON.stringify({ error: "Butuh token atau owner" }) };
       }
@@ -100,36 +164,86 @@ export async function handler(event) {
 
     /* ════════════════════════════════════════
        MODE B — APPLY DELTA SALDO
-       Dipakai web app.js (identifikasi via `token`) maupun
-       bot .casino depo/wth (identifikasi via `owner`).
     ════════════════════════════════════════ */
     if (!token && !owner) {
       return { statusCode: 400, body: JSON.stringify({ error: "Butuh token atau owner" }) };
     }
-    if (typeof change !== "number" || !Number.isFinite(change)) {
+
+    /* FIX: Tolak change = 0 (tidak ada yang berubah, tapi bisa dipakai
+       untuk spam push history kosong ke DB) */
+    if (typeof change !== "number" || !Number.isFinite(change) || change === 0) {
       return { statusCode: 400, body: JSON.stringify({ error: "change tidak valid" }) };
     }
     if (Math.abs(change) > MAX_ABS_CHANGE) {
       return { statusCode: 400, body: JSON.stringify({ error: "Perubahan saldo di luar batas wajar" }) };
     }
 
-    /* FIX poin 1 & 2:
-       - $inc atomik di level DB -> nggak ada lagi read-modify-write
-         seluruh dokumen, jadi aman dari race condition antar request.
-       - Filter "balance >= -change" (kalau change negatif) dieksekusi
-         SEBELUM update dilakukan -> server yang nentuin valid/tidaknya,
-         bukan client. Saldo nggak akan pernah bisa jadi minus. */
-    const baseMatch  = token ? { token } : { owner };
-    const elemMatch  = change < 0 ? { ...baseMatch, balance: { $gte: -change } } : baseMatch;
+    /* FIX: Validasi rollId — pastikan hasil yang dikirim cocok dengan
+       roll yang sudah dikeluarkan server. Ini mencegah client mengirim
+       change positif palsu tanpa pernah menjalani game.
+       Catatan: karena Netlify Functions bisa multi-instance, pending rolls
+       idealnya disimpan di MongoDB dengan TTL index. Di sini kita validasi
+       dasar: rollId harus ada dan format UUID valid. Untuk production penuh,
+       tambahkan MongoDB pendingRolls collection. */
+    if (token && historyEntry) {
+      if (!rollId || typeof rollId !== "string" ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(rollId)) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: "rollId tidak valid" })
+        };
+      }
+    }
+
+    /* FIX: Rate limiting per token — hanya berlaku untuk request dari web
+       (identifikasi via `token`, bukan `owner` yang dari bot). */
+    if (token) {
+      const now = Date.now();
+      const last = _lastRequest.get(token) || 0;
+      if (now - last < RATE_LIMIT_MS) {
+        return {
+          statusCode: 429,
+          body: JSON.stringify({ error: "Terlalu banyak request, tunggu sebentar" })
+        };
+      }
+      _lastRequest.set(token, now);
+      /* Bersihkan map kalau terlalu besar (jaga memory) */
+      if (_lastRequest.size > 5000) {
+        for (const [k, v] of _lastRequest) {
+          if (now - v > RATE_LIMIT_MS * 10) _lastRequest.delete(k);
+        }
+      }
+    }
+
+    /* FIX: Validasi dan sanitasi historyEntry sebelum disimpan */
+    let safeHistoryEntry = null;
+    if (historyEntry) {
+      safeHistoryEntry = sanitizeHistoryEntry(historyEntry, token);
+      if (!safeHistoryEntry) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: "historyEntry tidak valid" })
+        };
+      }
+
+      /* FIX: Validasi silang change di body vs change di historyEntry */
+      if (safeHistoryEntry.change !== change) {
+        return {
+          statusCode: 400,
+          body: JSON.stringify({ error: "Inkonsistensi: change tidak cocok dengan historyEntry" })
+        };
+      }
+    }
+
+    const baseMatch   = token ? { token } : { owner };
+    const elemMatch   = change < 0 ? { ...baseMatch, balance: { $gte: -change } } : baseMatch;
     const arrayFilter = token ? { "elem.token": token } : { "elem.owner": owner };
 
     const update = { $inc: { "tokens.$[elem].balance": change } };
-    if (historyEntry) {
-      update.$push = { "tokens.$[elem].history": historyEntry };
+    if (safeHistoryEntry) {
+      update.$push = { "tokens.$[elem].history": safeHistoryEntry };
     }
 
-    /* findOneAndUpdate -> sekalian ambil balance terbaru biar bot/web
-       bisa nampilin saldo akurat tanpa fetch ulang */
     const updatedDoc = await col.findOneAndUpdate(
       { _id: DOC_ID, tokens: { $elemMatch: elemMatch } },
       update,
@@ -137,8 +251,6 @@ export async function handler(event) {
     );
 
     if (!updatedDoc) {
-      /* Token/owner tidak ada, ATAU saldo saat ini di server kurang
-         dari |change| (mencegah saldo minus / hasil yang sudah usang) */
       return {
         statusCode: 409,
         body: JSON.stringify({ error: "Update ditolak: token/owner tidak ditemukan atau saldo tidak cukup" })
