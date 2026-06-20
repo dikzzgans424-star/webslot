@@ -121,7 +121,7 @@ function betToRp(bet) { return bet * 1000; }
 async function getTokenData(token) {
   /* FIX: kirim token sebagai query param supaya server hanya return
      data milik token itu saja — bukan expose semua token ke semua user. */
-  const res = await fetch('/.netlify/functions/gacha?token=' + encodeURIComponent(token) + '&_=' + Date.now());
+  const res = await fetch('/api/gacha?token=' + encodeURIComponent(token) + '&_=' + Date.now());
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Gagal mengambil data dari server');
@@ -141,7 +141,7 @@ async function getTokenData(token) {
 async function applyGameResult(token, change, historyEntry, rollId) {
   /* FIX: sertakan rollId agar server bisa verifikasi hasil cocok dengan
      roll yang sudah dikeluarkan sebelumnya. */
-  const res = await fetch('/.netlify/functions/gacha-update', {
+  const res = await fetch('/api/gacha-update', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ token, change, historyEntry, rollId })
@@ -432,7 +432,7 @@ function submitBetModal() {
 let _currentBet    = 0;
 let _currentRollId = null;  /* FIX: rollId dari server, untuk verifikasi saat simpan */
 
-function _launchGame() {
+async function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
   if (PREMIUM_ONLY_GAMES.has(_selectedGame) && !currentToken.isPremium) {
     setStatus('🔒 Game ini khusus token Premium.');
@@ -463,7 +463,7 @@ function _launchGame() {
      hasilnya. Ini mencegah manipulasi result lewat DevTools. */
   let _rollResult;
   try {
-    const rollRes = await fetch('/.netlify/functions/gacha-roll', {
+    const rollRes = await fetch('/api/gacha-roll', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
