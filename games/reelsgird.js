@@ -257,8 +257,15 @@ const ReelsGrid = (() => {
     console.log('PAYLINE:', paylineSyms);
 
     const streak    = countStreak(paylineSyms);
-    const actualWin = streak >= m.minMatch;
-    const mult      = actualWin ? (m.multTable[streak] ?? m.multTable[m.minMatch]) : 0;
+    /* FIX: actualWin harus konsisten dengan _gacha.result yang sudah
+       ditentukan server. Kalau animasi secara kebetulan menghasilkan
+       streak padahal seharusnya lose (atau sebaliknya), paksa sesuai
+       hasil yang sudah ditetapkan — jangan biarkan visual override result. */
+    const animWin   = streak >= m.minMatch;
+    const actualWin = isWin; // pakai hasil dari server, bukan dari DOM read-back
+    const mult      = actualWin
+      ? (animWin ? (m.multTable[streak] ?? m.multTable[m.minMatch]) : m.multTable[m.minMatch])
+      : 0;
 
     /* Highlight payline */
     for (let c = 0; c < m.cols; c++) {
