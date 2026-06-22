@@ -36,14 +36,19 @@ const MAX_ABS_CHANGE = 1000000000000000;
 
 /* Daftar field yang diizinkan ada di historyEntry — tolak field asing */
 const ALLOWED_HISTORY_FIELDS = new Set(["game", "bet", "result", "change", "at"]);
-const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines"]);
+const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines","olympus"]);
 const ALLOWED_BOT_GAMES  = new Set(["deposit","withdraw"]); // transaksi bot, bukan game web
 const ALLOWED_RESULTS = new Set(["win", "lose"]);
 
 /* MAX multiplier per game — dipakai server untuk validasi change positif.
-   Harus sinkron dengan MAX_GAME_MULTIPLIER di app.js. */
+   Harus sinkron dengan MAX_GAME_MULTIPLIER di app.js.
+   FIX: reelsgird punya beberapa mode (3x3/4x4/5x5/6x3) dengan multTable
+   berbeda-beda (lihat games/reelsgird.js). Cap harus pakai multiplier
+   TERTINGGI dari semua mode (6x3, 6 sama = 5.5x), bukan 2 — karena 2
+   hanya cover match 3 di mode 3x3 dan bikin match 4/5/6 di mode lain
+   ditolak server walau hasilnya valid dari RNG. */
 const MAX_GAME_MULTIPLIER = {
-  reelsgird: 2,
+  reelsgird: 5.5,
   roulette:  2,
   coinflip:  2,
   horserace: 2,
@@ -51,6 +56,7 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  8.5 * 0.95,
   plinko:    8,
   mines:     15,
+  olympus:   20,
 };
 
 function sanitizeHistoryEntry(entry, token) {

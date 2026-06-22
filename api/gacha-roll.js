@@ -25,9 +25,9 @@ async function getClient() {
 
 const ALLOWED_GAMES = new Set([
   "reelsgird","roulette","coinflip","horserace",
-  "airplane","blackjack","plinko","mines"
+  "airplane","blackjack","plinko","mines","olympus"
 ]);
-const PREMIUM_ONLY  = new Set(["airplane","mines"]);
+const PREMIUM_ONLY  = new Set(["airplane","mines","olympus"]);
 
 /* Roll TTL — client harus pakai dalam 5 menit atau expired */
 const ROLL_TTL_MS = 5 * 60 * 1000;
