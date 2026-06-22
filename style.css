@@ -2873,4 +2873,24 @@ body::after {
   font-weight: 800;
 }
 
- 
+/* ══════════════════════════════════════════════════════════
+   THEME: background foto statis, tanpa animasi
+   Cara pakai: tambahkan class "theme-olympus" ke <body>, contoh:
+     <body class="theme-olympus">
+══════════════════════════════════════════════════════════ */
+body.theme-olympus {
+  background-image:
+    linear-gradient(180deg, rgba(8,9,12,0.55) 0%, rgba(8,9,12,0.72) 60%, rgba(8,9,12,0.88) 100%),
+    url("https://cdn.jsdelivr.net/gh/dikzzgans424-star/CDN-Miwa-botz@main/uploads/1782131597639.jpg");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Sentuhan netral pada kartu utama, gak ada animasi */
+body.theme-olympus .glass-card,
+body.theme-olympus .slot-multi-card {
+  border-color: rgba(170,180,210,0.14);
+  box-shadow: 0 0 0 1px rgba(170,180,210,0.05), 0 18px 50px rgba(10,12,20,0.4);
+}
