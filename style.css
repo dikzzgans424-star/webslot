@@ -2872,3 +2872,203 @@ body::after {
   color: var(--gold);
   font-weight: 800;
 }
+
+/* ══════════════════════════════════════════════════════════
+   THEME: OLYMPUS — langit malam Yunani kuno + petir + pilar
+   Karya orisinal (bukan aset/logo game pihak ketiga manapun).
+   Cara pakai: tambahkan class "theme-olympus" ke <body>, contoh:
+     <body class="theme-olympus">
+   Bisa juga toggle via JS: document.body.classList.toggle('theme-olympus')
+══════════════════════════════════════════════════════════ */
+body.theme-olympus {
+  background: radial-gradient(ellipse 120% 80% at 50% -10%, #2a1240 0%, #170a2e 35%, #0a0618 70%, #060410 100%);
+}
+
+/* Langit + kilatan petir berkedip acak */
+body.theme-olympus::before {
+  background:
+    radial-gradient(ellipse 70% 35% at 50% 0%, rgba(255,221,140,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 20% 15%, rgba(150,90,255,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 10%, rgba(255,180,60,0.08) 0%, transparent 70%);
+  animation: olympusSkyPulse 6s ease-in-out infinite;
+}
+
+@keyframes olympusSkyPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+/* Siluet pilar kuil Yunani + petir, digambar pakai SVG inline (orisinal) */
+body.theme-olympus::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-repeat: repeat-x, no-repeat, no-repeat;
+  background-position: bottom center, 12% top, 85% 8%;
+  background-size: 100% 38vh, 9vw auto, 7vw auto;
+  background-image:
+    /* deretan pilar Doric di bawah, fade ke gelap */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 300' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%23000000' stop-opacity='0'/%3E%3Cstop offset='100%25' stop-color='%23000000' stop-opacity='0.85'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='%23120a24'%3E%3Crect x='10' y='40' width='28' height='260'/%3E%3Crect x='2' y='30' width='44' height='12'/%3E%3Crect x='130' y='40' width='28' height='260'/%3E%3Crect x='122' y='30' width='44' height='12'/%3E%3Crect x='250' y='40' width='28' height='260'/%3E%3Crect x='242' y='30' width='44' height='12'/%3E%3Crect x='370' y='40' width='28' height='260'/%3E%3Crect x='362' y='30' width='44' height='12'/%3E%3Crect x='490' y='40' width='28' height='260'/%3E%3Crect x='482' y='30' width='44' height='12'/%3E%3Crect x='610' y='40' width='28' height='260'/%3E%3Crect x='602' y='30' width='44' height='12'/%3E%3Crect x='730' y='40' width='28' height='260'/%3E%3Crect x='722' y='30' width='44' height='12'/%3E%3C/g%3E%3Crect width='800' height='300' fill='url(%23g)'/%3E%3C/svg%3E"),
+    /* petir kiri */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 140'%3E%3Cpolygon points='34,0 8,70 26,70 14,140 52,55 32,55' fill='%23ffd27a' opacity='0.85'/%3E%3C/svg%3E"),
+    /* petir kanan, lebih kecil */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 140'%3E%3Cpolygon points='34,0 8,70 26,70 14,140 52,55 32,55' fill='%23ffd27a' opacity='0.7'/%3E%3C/svg%3E");
+  animation: olympusBoltFlicker 4.5s ease-in-out infinite;
+}
+
+@keyframes olympusBoltFlicker {
+  0%, 38%, 42%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  40%                { filter: drop-shadow(0 0 14px rgba(255,210,120,0.9)); }
+}
+
+/* Awan emas tipis melayang di tengah, biar gak kosong & dapet kesan "atas gunung Olympus" */
+body.theme-olympus .container::before {
+  content: '';
+  position: fixed;
+  left: 0; right: 0; top: 18vh;
+  height: 26vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 30% 60% at 15% 50%, rgba(255,221,160,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 50% at 70% 40%, rgba(255,221,160,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 25% 45% at 92% 60%, rgba(255,221,160,0.04) 0%, transparent 70%);
+  animation: olympusCloudDrift 22s linear infinite alternate;
+}
+
+@keyframes olympusCloudDrift {
+  0%   { transform: translateX(-2%); }
+  100% { transform: translateX(2%); }
+}
+
+/* Sentuhan emas-petir pada kartu utama biar nyambung sama tema */
+body.theme-olympus .glass-card,
+body.theme-olympus .slot-multi-card {
+  border-color: rgba(255,200,110,0.22);
+  box-shadow: 0 0 0 1px rgba(255,200,110,0.08), 0 18px 50px rgba(80,30,140,0.25);
+}
+
+/* ══════════════════════════════════════════════════════════
+   GAME: ZEUS FORTUNE (cluster-pay) — games/olympus.js
+══════════════════════════════════════════════════════════ */
+.olympus-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: 22px 22px 28px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.olympus-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,200,110,0.5), transparent);
+}
+
+.olympus-hud {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  min-height: 18px;
+}
+
+.olympus-grid {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  margin: 0 auto 14px;
+}
+
+.olympus-cell {
+  aspect-ratio: 1 / 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+
+.olympus-cell.reveal-in {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.2,0.9,0.3,1.3);
+}
+
+.olympus-cell.win-cluster {
+  background: rgba(255,200,110,0.18);
+  border-color: #ffd27a;
+  box-shadow: 0 0 14px rgba(255,200,110,0.55);
+  animation: olympusCellPulse 0.7s ease-in-out infinite;
+}
+
+@keyframes olympusCellPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255,200,110,0.4); }
+  50%      { box-shadow: 0 0 18px rgba(255,200,110,0.85); }
+}
+
+.olympus-cell.bursting span {
+  animation: olympusBurst 0.38s ease-in forwards;
+}
+
+@keyframes olympusBurst {
+  0%   { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(0.1); opacity: 0; }
+}
+
+.olympus-cell.refill-in {
+  opacity: 0;
+  transform: scale(0.5);
+  animation: olympusRefill 0.3s ease-out forwards;
+}
+
+@keyframes olympusRefill {
+  0%   { opacity: 0; transform: scale(0.5) translateY(-6px); }
+  100% { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
+.olympus-orb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  min-height: 0;
+  opacity: 0;
+  transition: opacity 0.3s;
+  margin-bottom: 12px;
+}
+
+.olympus-orb-row.show { opacity: 1; }
+
+.olympus-orb {
+  background: linear-gradient(135deg, #ffd27a, #b8860b);
+  color: #1a1208;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  box-shadow: 0 0 12px rgba(255,200,110,0.5);
+  animation: olympusOrbPop 0.35s cubic-bezier(0.2,0.9,0.3,1.3);
+}
+
+@keyframes olympusOrbPop {
+  0%   { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}

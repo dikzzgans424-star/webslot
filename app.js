@@ -18,12 +18,14 @@ const MAX_ABS_CHANGE = 1000000000000000;
 /* Multiplier TERBESAR yang mungkin kejadian per game (worst case buat
    server / best case buat user), dipakai buat cegah bet yang potensi
    kemenangannya bisa lebih besar dari MAX_ABS_CHANGE.
-   - reelsgird/coinflip/horserace/blackjack/roulette: tetap 2x
+   - reelsgird : mode 6x3, 6 sama = 5.5x (multiplier tertinggi di multTable
+                 semua mode — lihat games/reelsgird.js)
+   - coinflip/horserace/blackjack/roulette: tetap 2x
    - airplane  : crash maksimum ~8.5x, kena pajak 5% -> ~8.075x
    - plinko    : slot tertinggi di tabel MULTS = 8x
    - mines     : MULT_CAP = 15x */
 const MAX_GAME_MULTIPLIER = {
-  reelsgird: 2,
+  reelsgird: 5.5,
   roulette:  2,
   coinflip:  2,
   horserace: 2,
@@ -31,6 +33,7 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  8.5 * 0.95,
   plinko:    8,
   mines:     15,
+  olympus:   20,
 };
 
 function maxPossibleChange(game, bet) {
@@ -48,6 +51,7 @@ const GAME_MULTIPLIER = {
   blackjack: 2,
   plinko:    null,  /* Multiplier bervariasi 0.3x-10x, dihitung di plinko.js */
   mines:     null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di mines.js */
+  olympus:   null,  /* Cluster pay — multiplier bervariasi, dihitung di olympus.js */
 };
 
 const GAME_LABELS = {
@@ -59,10 +63,11 @@ const GAME_LABELS = {
   blackjack: '🃏 Blackjack',
   plinko:    '🟣 Plinko',
   mines:     '💣 Mines',
+  olympus:   '⚡ Zeus Fortune',
 };
 
 /* Game yang cuma bisa dimainkan token premium */
-const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines']);
+const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines', 'olympus']);
 
 const GAMES = {
   reelsgird:   () => ReelsGrid,
@@ -73,6 +78,7 @@ const GAMES = {
   blackjack: () => Blackjack,
   plinko:    () => Plinko,
   mines:     () => Mines,
+  olympus:   () => Olympus,
 };
 
 /* ────────────────────────────────────────
@@ -224,6 +230,7 @@ function showTokenDashboard() {
     if (key === 'plinko')    return '0.5× – 8×';
     if (key === 'mines')     return 'Cashout × (s/d)';
     if (key === 'roulette')  return '2× / green 2.5×';
+    if (key === 'olympus')   return 'Cluster 1.4× – 20×';
     return GAME_MULTIPLIER[key] + '×';
   }
 
@@ -500,7 +507,7 @@ async function _launchGame() {
   _showWaitingPlaceholder();
 
   const betRp   = betToRp(_currentBet);
-  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines')
+  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines' || _selectedGame === 'olympus')
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
@@ -583,7 +590,7 @@ async function onGameResult(isWin, moneyWon) {
     const wonBet  = Math.floor(moneyWon / 1000);
     balanceChange = wonBet - _currentBet;
   } else if (isWin) {
-    if (_selectedGame === 'airplane' || _selectedGame === 'mines') {
+    if (_selectedGame === 'airplane' || _selectedGame === 'mines' || _selectedGame === 'olympus') {
       const wonBet = Math.floor(moneyWon / 1000);
       balanceChange = wonBet - _currentBet;
     } else {
