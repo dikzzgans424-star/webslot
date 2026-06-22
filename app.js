@@ -33,7 +33,6 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  8.5 * 0.95,
   plinko:    8,
   mines:     15,
-  olympus:   20,
 };
 
 function maxPossibleChange(game, bet) {
@@ -51,7 +50,6 @@ const GAME_MULTIPLIER = {
   blackjack: 2,
   plinko:    null,  /* Multiplier bervariasi 0.3x-10x, dihitung di plinko.js */
   mines:     null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di mines.js */
-  olympus:   null,  /* Cluster pay — multiplier bervariasi, dihitung di olympus.js */
 };
 
 const GAME_LABELS = {
@@ -63,11 +61,10 @@ const GAME_LABELS = {
   blackjack: '🃏 Blackjack',
   plinko:    '🟣 Plinko',
   mines:     '💣 Mines',
-  olympus:   '⚡ Zeus Fortune',
 };
 
 /* Game yang cuma bisa dimainkan token premium */
-const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines', 'olympus']);
+const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines']);
 
 const GAMES = {
   reelsgird:   () => ReelsGrid,
@@ -78,7 +75,6 @@ const GAMES = {
   blackjack: () => Blackjack,
   plinko:    () => Plinko,
   mines:     () => Mines,
-  olympus:   () => Olympus,
 };
 
 /* ────────────────────────────────────────
@@ -230,7 +226,6 @@ function showTokenDashboard() {
     if (key === 'plinko')    return '0.5× – 8×';
     if (key === 'mines')     return 'Cashout × (s/d)';
     if (key === 'roulette')  return '2× / green 2.5×';
-    if (key === 'olympus')   return 'Cluster 1.4× – 20× | Min bet 100';
     return GAME_MULTIPLIER[key] + '×';
   }
 
@@ -437,11 +432,7 @@ function submitBetModal() {
   const inp = document.getElementById('betModalInput');
   const val = parseInt(inp?.value) || 0;
   if (val < 1 || val > currentToken.balance) return;
-  if (_selectedGame === 'olympus' && val < 100) {
-    setStatus('⚠ Zeus Fortune: minimal bet 100.');
-    closeBetModal(true);
-    return;
-  }
+ 
   closeBetModal();
   _currentBet = val;
   _launchGame();
@@ -512,7 +503,7 @@ async function _launchGame() {
   _showWaitingPlaceholder();
 
   const betRp   = betToRp(_currentBet);
-  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines' || _selectedGame === 'olympus')
+  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines')
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
@@ -595,7 +586,7 @@ async function onGameResult(isWin, moneyWon) {
     const wonBet  = Math.floor(moneyWon / 1000);
     balanceChange = wonBet - _currentBet;
   } else if (isWin) {
-    if (_selectedGame === 'airplane' || _selectedGame === 'mines' || _selectedGame === 'olympus') {
+    if (_selectedGame === 'airplane' || _selectedGame === 'mines') {
       const wonBet = Math.floor(moneyWon / 1000);
       balanceChange = wonBet - _currentBet;
     } else {
