@@ -73,12 +73,14 @@ const GAME_LABELS = {
   roulette:  '🎡 Roulette',
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
-  blackjack: '🃏 Blackjack',
   plinko:    '🟣 Plinko',
+  wheel:     '🎯 Wheel of Fortune',
+  blackjack: '🃏 Blackjack',
+  hilo:      '🔮 Hi-Lo',
   airplane:  '✈️ AirPlane',
   mines:     '💣 Mines',
-  wheel:     '🎯 Wheel of Fortune',
-  hilo:      '🔮 Hi-Lo',
+  deposit:   '💰 Deposit',
+  withdraw:  '💸 Withdraw',
 };
 
 /* Game yang cuma bisa dimainkan token premium */
