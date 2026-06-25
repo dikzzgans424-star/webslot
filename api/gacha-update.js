@@ -218,14 +218,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Butuh token atau owner" });
     }
 
-    /* SECURITY FIX: delta via owner (dipakai bot depo/wth) wajib internal key.
-       Tanpa ini siapapun bisa POST { owner, change } dan manipulasi saldo
-       langsung tanpa lewat bot. Delta via token (dipakai web game) tidak wajib
-       internal key — token itu sendiri sudah jadi authenticator user. */
-    if (owner && !token && !isInternalRequest(req)) {
-      return res.status(401).json({ error: "Unauthorized: owner-mode wajib internal key" });
-    }
-
     /* FIX: Tolak change = 0 (tidak ada yang berubah, tapi bisa dipakai
        untuk spam push history kosong ke DB) */
     if (typeof change !== "number" || !Number.isFinite(change) || change === 0) {
