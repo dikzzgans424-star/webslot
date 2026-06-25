@@ -545,6 +545,10 @@ const Wheel = (() => {
     _done = true;
 
     const prize = actualWin ? Math.floor(_bet * Math.min(seg.mult, MAX_MULT) * 1000) : 0;
+    /* prize = total yang diterima (termasuk bet kembali).
+       onGameResult akan hitung balanceChange = (prize/1000) - bet,
+       sama seperti pola airplane/mines. Pastikan kirim isWin=true
+       supaya branch yang benar dipakai. */
     _onResult(actualWin, prize);
   }
 

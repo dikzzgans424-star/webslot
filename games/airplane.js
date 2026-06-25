@@ -79,10 +79,18 @@ const Airplane = (() => {
     _tickTimer = _rafId = null;
   }
 
+  /* FIX: cap maksimum dinaikkan ke 22.22x (dari 8.5x).
+     - win  : 1% kemungkinan nabrak rendah pas 2.00x (hampir-rugi),
+              99% sisanya tersebar 3.5x - 22.22x.
+     - lose : tetap 1.5x - 3.5x, tidak diubah.
+     PENTING: cap 22.22 ini HARUS sinkron dengan MAX_GAME_MULTIPLIER.airplane
+     di app.js dan api/gacha-update.js — kalau salah satu lupa diubah,
+     hasil >batas lama akan ditolak server (400) walau menang di animasi. */
   function _calcCrashAt(win) {
-    return win
-      ? parseFloat((3.5 + Math.random() * 5.0).toFixed(2))
-      : parseFloat((1.5 + Math.random() * 2.0).toFixed(2));
+    if (!win) return parseFloat((1.5 + Math.random() * 2.0).toFixed(2));
+
+    if (Math.random() < 0.01) return 2.00; // 1% nabrak rendah di 2x
+    return parseFloat((3.5 + Math.random() * 18.72).toFixed(2)); // 3.50 - 22.22
   }
 
   /* ════════════════════════════════
