@@ -27,6 +27,13 @@ let _gameActive  = false;
    -> kalau diubah di server, ubah juga di sini biar validasinya nyambung. */
 const MAX_ABS_CHANGE = 1000000000000000;
 
+/* Max bet per main: normal 50jt bet, premium 100jt bet */
+const MAX_BET_NORMAL  = 50000;
+const MAX_BET_PREMIUM = 100000;
+function getMaxBet() {
+  return currentToken?.isPremium ? MAX_BET_PREMIUM : MAX_BET_NORMAL;
+}
+
 /* Multiplier TERBESAR yang mungkin kejadian per game (worst case buat
    server / best case buat user), dipakai buat cegah bet yang potensi
    kemenangannya bisa lebih besar dari MAX_ABS_CHANGE.
@@ -81,6 +88,20 @@ const GAME_LABELS = {
   mines:     '💣 Mines',
   deposit:   '💰 Deposit',
   withdraw:  '💸 Withdraw',
+};
+
+/* Hanya game yang bisa dipilih user — deposit/withdraw tidak masuk tombol */
+const GAME_BUTTONS = {
+  reelsgird:   '🎰 Reels Gird',
+  roulette:  '🎡 Roulette',
+  coinflip:  '🪙 Coin Flip',
+  horserace: '🏇 Horse Race',
+  plinko:    '🟣 Plinko',
+  wheel:     '🎯 Wheel of Fortune',
+  blackjack: '🃏 Blackjack',
+  hilo:      '🔮 Hi-Lo',
+  airplane:  '✈️ AirPlane',
+  mines:     '💣 Mines',
 };
 
 /* Game yang cuma bisa dimainkan token premium */
@@ -288,7 +309,7 @@ function showTokenDashboard() {
     <div class="token-game-section">
       <div class="token-section-label">PILIH GAME</div>
       <div class="token-game-grid">
-        ${Object.entries(GAME_LABELS).map(([key, label]) => {
+        ${Object.entries(GAME_BUTTONS).map(([key, label]) => {
           const locked = PREMIUM_ONLY_GAMES.has(key) && !currentToken.isPremium;
           return `
           <button class="token-game-btn ${locked ? 'locked' : ''}" id="gameBtn_${key}"
@@ -413,7 +434,7 @@ function setModalBet(amount) {
   const inp = document.getElementById('betModalInput');
   if (!inp) return;
   SFX.generic.select();
-  inp.value = Math.min(Math.max(1, Math.floor(amount)), currentToken.balance);
+  inp.value = Math.min(Math.max(1, Math.floor(amount)), currentToken.balance, getMaxBet());
   onModalBetInput();
 }
 
@@ -429,9 +450,10 @@ function onModalBetInput() {
      dari MAX_ABS_CHANGE -> kalau dibiarkan, nanti game-nya kelar tapi
      hasil GAGAL disimpan ke server (server nolak, balik 400). Mending
      dicegah dari awal di bet modal-nya. */
-  const overLimit = val >= 1 && maxPossibleChange(_selectedGame, val) > MAX_ABS_CHANGE;
+  const overLimit  = val >= 1 && maxPossibleChange(_selectedGame, val) > MAX_ABS_CHANGE;
+  const overMaxBet = val >= 1 && val > getMaxBet();
 
-  const valid = val >= 1 && val <= currentToken.balance && !overLimit;
+  const valid = val >= 1 && val <= currentToken.balance && !overLimit && !overMaxBet;
   if (startBtn) startBtn.disabled = !valid;
 
   if (!preview) return;
@@ -441,6 +463,12 @@ function onModalBetInput() {
   }
   if (val > currentToken.balance) {
     preview.textContent = '⚠ Melebihi saldo token'; preview.className = 'bet-modal-preview warn'; return;
+  }
+  if (overMaxBet) {
+    const maxBet = getMaxBet();
+    preview.textContent = `⚠ Max bet ${currentToken.isPremium ? 'Premium' : 'Normal'}: ${maxBet.toLocaleString()} bet`;
+    preview.className = 'bet-modal-preview warn';
+    return;
   }
   if (overLimit) {
     preview.textContent = '⚠ Bet terlalu besar — potensi kemenangan melebihi limit sistem';
@@ -547,6 +575,10 @@ async function _launchGame() {
   }
   if (_currentBet < 1 || _currentBet > currentToken.balance) {
     setStatus('⚠ Jumlah bet tidak valid.');
+    return;
+  }
+  if (_currentBet > getMaxBet()) {
+    setStatus(`⚠ Max bet ${currentToken.isPremium ? 'Premium' : 'Normal'}: ${getMaxBet().toLocaleString()} bet`);
     return;
   }
   if (maxPossibleChange(_selectedGame, _currentBet) > MAX_ABS_CHANGE) {
