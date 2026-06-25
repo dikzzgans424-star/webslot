@@ -33,7 +33,7 @@ const MAX_ABS_CHANGE = 1000000000000000;
    - reelsgird : mode 6x3, 6 sama = 5.5x (multiplier tertinggi di multTable
                  semua mode — lihat games/reelsgird.js)
    - coinflip/horserace/blackjack/roulette: tetap 2x
-   - airplane  : crash maksimum ~8.5x, kena pajak 5% -> ~8.075x
+   - airplane  : crash maksimum 22.22x, kena pajak 5% -> ~21.109x
    - plinko    : slot tertinggi di tabel MULTS = 8x
    - mines     : MULT_CAP = 15x */
 const MAX_GAME_MULTIPLIER = {
@@ -42,7 +42,7 @@ const MAX_GAME_MULTIPLIER = {
   coinflip:  2,
   horserace: 2,
   blackjack: 2,
-  airplane:  8.5 * 0.95,
+  airplane:  22.22 * 0.95,
   plinko:    8,
   mines:     15,
   wheel:     5,
@@ -122,6 +122,21 @@ function backToDashboard() {
   _gameActive = false; // Reset state agar bisa kembali dari lobby game
   hideGame();
   showTokenDashboard();
+}
+
+/* Update elemen saldo di dashboard yang sudah ada di DOM
+   tanpa perlu rebuild seluruh dashboard — dipanggil setelah game selesai. */
+function _updateDashboardBalance(newBalance) {
+  const balEl = document.getElementById('tokenBalanceDisplay');
+  if (balEl) {
+    balEl.innerHTML = `${newBalance} <span class="token-balance-unit">bet</span>`;
+    /* Animasi singkat highlight supaya user tau saldo berubah */
+    balEl.style.transition = 'color 0.2s';
+    balEl.style.color = '#4caf82';
+    setTimeout(() => { balEl.style.color = ''; }, 1200);
+  }
+  const rpEl = balEl?.parentElement?.querySelector('.token-balance-rp');
+  if (rpEl) rpEl.textContent = formatRp(betToRp(newBalance));
 }
 
 function shakeInput() {
@@ -636,7 +651,14 @@ async function onGameResult(isWin, moneyWon) {
     const wonBet  = Math.floor(moneyWon / 1000);
     balanceChange = wonBet - _currentBet;
   } else if (isWin) {
-    if (_selectedGame === 'airplane' || _selectedGame === 'mines') {
+    if (_selectedGame === 'airplane' || _selectedGame === 'mines' || _selectedGame === 'wheel') {
+      /* Variable multiplier games: moneyWon = total prize Rp (termasuk bet kembali)
+         balanceChange = net gain = (prize / 1000) - bet
+         Kalau mult=1x: prize = bet * 1 * 1000, balanceChange = bet - bet = 0
+         → ini valid (balik modal), tapi server tolak change=0.
+         Treat mult=1 sebagai minimal +1 supaya bisa disimpan, atau
+         anggap lose jika change=0 (user tidak untung tapi tidak rugi).
+         Solusi: jika balanceChange=0, skip save (tidak ada yang berubah). */
       const wonBet = Math.floor(moneyWon / 1000);
       balanceChange = wonBet - _currentBet;
     } else {
@@ -661,15 +683,19 @@ async function onGameResult(isWin, moneyWon) {
   setStatus('💾 Menyimpan hasil...', true);
   let saveOk = false;
   try {
-    /* FIX poin 1 & 2: server yang validasi & apply secara atomik.
-       Kalau ditolak (409 = saldo nggak cukup/race condition), JANGAN
-       update currentToken.balance secara lokal — biar nggak nunjukin
-       saldo palsu ke user. Suruh dia logout/login ulang buat sync. */
-    await applyGameResult(currentToken.token, balanceChange, histEntry, _currentRollId);
-    currentToken.balance = newBalance;
-    if (!currentToken.history) currentToken.history = [];
-    currentToken.history.push(histEntry);
-    saveOk = true;
+    if (balanceChange === 0) {
+      /* Balik modal (misal wheel 1×) — tidak ada perubahan saldo,
+         tidak perlu kirim ke server (server tolak change=0 anyway).
+         Anggap "save ok" tapi tidak ada yang ditulis. */
+      saveOk = true;
+    } else {
+      await applyGameResult(currentToken.token, balanceChange, histEntry, _currentRollId);
+      currentToken.balance = newBalance;
+      if (!currentToken.history) currentToken.history = [];
+      currentToken.history.push(histEntry);
+      _updateDashboardBalance(newBalance); /* Bug fix: refresh saldo di dashboard */
+      saveOk = true;
+    }
   } catch (err) {
     console.error('Save error:', err);
   }
