@@ -25,7 +25,7 @@ async function getClient() {
 
 const ALLOWED_GAMES = new Set([
   "reelsgird","roulette","coinflip","horserace",
-  "airplane","blackjack","plinko","mines"
+  "airplane","blackjack","plinko","mines","wheel","hilo"
 ]);
 const PREMIUM_ONLY  = new Set(["airplane","mines"]);
 

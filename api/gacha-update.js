@@ -36,7 +36,7 @@ const MAX_ABS_CHANGE = 1000000000000000;
 
 /* Daftar field yang diizinkan ada di historyEntry — tolak field asing */
 const ALLOWED_HISTORY_FIELDS = new Set(["game", "bet", "result", "change", "at"]);
-const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines"]);
+const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines","wheel","hilo"]);
 const ALLOWED_BOT_GAMES  = new Set(["deposit","withdraw"]); // transaksi bot, bukan game web
 const ALLOWED_RESULTS = new Set(["win", "lose"]);
 
@@ -56,6 +56,8 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  10 * 0.95,
   plinko:    8,
   mines:     15,
+  wheel:     5,
+  hilo:      10,
 };
 
 function sanitizeHistoryEntry(entry, token) {
