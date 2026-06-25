@@ -29,7 +29,7 @@
 
 const HiLo = (() => {
 
-  const HOUSE_EDGE = 0.04;
+  const HOUSE_EDGE = 0.09;
   const MULT_CAP    = 10;   // HARUS sama dengan MAX_GAME_MULTIPLIER.hilo di app.js & gacha-update.js
 
   const SUITS = ['♠','♥','♦','♣'];
@@ -133,6 +133,11 @@ const HiLo = (() => {
     _updateButtonAvailability();
   }
 
+  /* Cek apakah masih mungkin lanjut tebak (ada kartu lebih tinggi ATAU lebih rendah di deck) */
+  function _hasPlayableMove() {
+    return _deck.some(c => c.value !== _current.value);
+  }
+
   /* Nonaktifkan arah yang mustahil (kartu sekarang King -> HI mustahil, Ace -> LO mustahil) */
   function _updateButtonAvailability() {
     const hiBtn = document.getElementById('hiloHiBtn');
@@ -165,7 +170,7 @@ const HiLo = (() => {
     /* Tentukan apakah tebakan ini "dipaksa benar" berdasarkan predetermined path */
     let forcedCorrect;
     if (_streak < _safeTarget) forcedCorrect = true;
-    else forcedCorrect = Math.random() < (_isWinPath ? 0.55 : 0.20);
+    else forcedCorrect = Math.random() < (_isWinPath ? 0.38 : 0.15);
 
     /* Kalau pool yang dibutuhkan kosong (mustahil secara matematis), paksa hasil sesuai pool yang ada */
     let pool = forcedCorrect ? satisfying : notSatisfying;
@@ -213,8 +218,10 @@ const HiLo = (() => {
     window.setStatus(`✅ Benar! Multiplier ${mult.toFixed(2)}x`, true);
     SFX.hilo.correct();
 
-    /* Auto-cashout kalau sudah kena cap atau deck mau habis */
-    if (mult >= MULT_CAP || _deck.length <= 2) {
+    /* Auto-cashout kalau sudah kena cap, deck mau habis, atau gak ada lagi kartu
+       lebih tinggi/rendah yang bisa ditebak (fix: dulu bisa bikin 2 tombol mati
+       barengan & macet, misal kartu sekarang & sisa deck nilainya sama semua) */
+    if (mult >= MULT_CAP || _deck.length <= 2 || !_hasPlayableMove()) {
       await new Promise(r => setTimeout(r, 500));
       await cashout();
       return;
@@ -273,11 +280,17 @@ const HiLo = (() => {
 
     _deck = _buildDeck();
     _current = _deck.pop();
+    /* Jaga-jaga: kalau entah kenapa kartu awal gak punya kandidat lebih tinggi
+       maupun lebih rendah sama sekali, kocok ulang biar gak macet dari awal */
+    while (!_deck.some(c => c.value !== _current.value)) {
+      _deck = _buildDeck();
+      _current = _deck.pop();
+    }
 
     /* Ambang streak benar terjamin, sama pola dengan mines.js _safeTarget */
     _safeTarget = _isWinPath
-      ? 3 + Math.floor(Math.random() * 3) // 3-5 saat WIN
-      : 0 + Math.floor(Math.random() * 3); // 0-2 saat LOSE
+      ? 1 + Math.floor(Math.random() * 2) // 1-2 saat WIN (sebelumnya 3-5, kebanyakan kena 10x)
+      : 0 + Math.floor(Math.random() * 2); // 0-1 saat LOSE
 
     _render();
   }
