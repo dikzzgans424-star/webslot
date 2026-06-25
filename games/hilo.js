@@ -7,20 +7,22 @@
    - Deck 52 kartu standar, dikocok sekali per game, kartu ditarik
      berurutan (tidak dikembalikan ke deck).
    - 1 kartu "sekarang" ditampilkan. Pemain menebak kartu berikutnya
-     LEBIH TINGGI atau LEBIH RENDAH (seri/sama nilai = kalah).
-   - Tiap tebakan benar menaikkan multiplier (kumulatif, dihitung dari
+     LEBIH TINGGI atau LEBIH RENDAH.
+   - Kartu SAMA NILAI = SERI — kartu maju ke slot "sekarang" tapi
+     streak & multiplier tidak naik, permainan lanjut.
+   - Tiap tebakan BENAR menaikkan multiplier (kumulatif, dihitung dari
      probabilitas asli kartu yang tersisa di deck — kartu ekstrem
      (misal nilai kecil lalu nebak LO) kasih multiplier kecil,
      tebakan "berani" di kartu tengah kasih multiplier lebih besar).
    - Pemain bisa CASHOUT kapan saja setelah minimal 1 tebakan benar.
-   - Tombol arah yang MUSTAHIL (misal nebak HI saat kartu sekarang King)
-     otomatis dinonaktifkan.
+   - Tombol arah yang MUSTAHIL (misal nebak HI saat kartu sekarang King
+     dan sisa deck semua sama/lebih rendah) otomatis dinonaktifkan.
 
    Mekanisme predetermined result (sama pola dengan mines.js):
    - _gacha.result cuma nentuin KATEGORI:
        'win'  -> dijamin benar sampai streak target (3-5), baru
                  risiko asli (55% benar) berlaku
-       'lose' -> dijamin benar cuma 0-2 streak, lalu risiko asli
+       'lose' -> dijamin benar cuma 1-2 streak, lalu risiko asli
                  turun jadi 20% benar
    - Kartu AKTUAL yang ditarik tetap diambil acak dari sub-set deck
      yang sesuai (memenuhi arah / tidak memenuhi arah), jadi kartu
@@ -135,10 +137,10 @@ const HiLo = (() => {
 
   /* Cek apakah masih mungkin lanjut tebak (ada kartu lebih tinggi ATAU lebih rendah di deck) */
   function _hasPlayableMove() {
-    return _deck.some(c => c.value !== _current.value);
+    return _deck.some(c => c.value > _current.value) || _deck.some(c => c.value < _current.value);
   }
 
-  /* Nonaktifkan arah yang mustahil (kartu sekarang King -> HI mustahil, Ace -> LO mustahil) */
+  /* Nonaktifkan tombol arah yang tidak punya kandidat di deck */
   function _updateButtonAvailability() {
     const hiBtn = document.getElementById('hiloHiBtn');
     const loBtn = document.getElementById('hiloLoBtn');
@@ -163,30 +165,72 @@ const HiLo = (() => {
     if (loBtn) loBtn.disabled = true;
     window.setStatus('🔮 Membuka kartu...', true);
 
-    const satisfying    = _deck.filter(c => direction === 'hi' ? c.value > _current.value : c.value < _current.value);
-    const notSatisfying = _deck.filter(c => !(direction === 'hi' ? c.value > _current.value : c.value < _current.value));
-    const trueProb = satisfying.length / _deck.length;
+    /* Pool untuk hasil "benar" dan "salah" — EXCLUDE kartu nilai sama (seri) */
+    const higher      = _deck.filter(c => c.value > _current.value);
+    const lower       = _deck.filter(c => c.value < _current.value);
+    const equal       = _deck.filter(c => c.value === _current.value);
+    const satisfying    = direction === 'hi' ? higher : lower;
+    const notSatisfying = direction === 'hi' ? lower  : higher;
+
+    /* trueProb: peluang benar dari kartu non-seri yang tersisa
+       (kartu seri tidak masuk hitungan karena tidak bikin kalah/menang) */
+    const nonEqualCount = higher.length + lower.length;
+    const trueProb = nonEqualCount > 0 ? satisfying.length / nonEqualCount : 1;
 
     /* Tentukan apakah tebakan ini "dipaksa benar" berdasarkan predetermined path */
     let forcedCorrect;
     if (_streak < _safeTarget) forcedCorrect = true;
-    else forcedCorrect = Math.random() < (_isWinPath ? 0.38 : 0.15);
+    else forcedCorrect = Math.random() < (_isWinPath ? 0.55 : 0.20);
 
-    /* Kalau pool yang dibutuhkan kosong (mustahil secara matematis), paksa hasil sesuai pool yang ada */
-    let pool = forcedCorrect ? satisfying : notSatisfying;
-    if (pool.length === 0) pool = forcedCorrect ? notSatisfying : satisfying;
+    /* Pilih pool: benar, salah, atau acak dari kartu seri jika pool lain kosong */
+    let pool;
+    if (forcedCorrect) {
+      pool = satisfying.length > 0 ? satisfying : (equal.length > 0 ? equal : notSatisfying);
+    } else {
+      pool = notSatisfying.length > 0 ? notSatisfying : (equal.length > 0 ? equal : satisfying);
+    }
 
-    const pickedIdx  = Math.floor(Math.random() * pool.length);
-    const nextCard   = pool[pickedIdx];
+    const pickedIdx = Math.floor(Math.random() * pool.length);
+    const nextCard  = pool[pickedIdx];
     _deck.splice(_deck.indexOf(nextCard), 1);
-
-    const isCorrect = direction === 'hi' ? nextCard.value > _current.value : nextCard.value < _current.value;
 
     const nextEl = document.getElementById('hiloNextCard');
     if (nextEl) nextEl.innerHTML = _cardHTML(nextCard);
     SFX.hilo.flip();
     await new Promise(r => setTimeout(r, 500));
 
+    /* ── SERI: kartu sama nilai ── */
+    if (nextCard.value === _current.value) {
+      _current = nextCard;
+      const curEl = document.getElementById('hiloCurrentCard');
+      if (curEl)  curEl.innerHTML  = _cardHTML(_current);
+      if (nextEl) nextEl.innerHTML = _cardHTML(null, true);
+
+      const hud = document.getElementById('hiloHud');
+      const mult = _multiplierFromCumProb();
+      if (hud) hud.textContent = `🟰 Seri! Kartu maju, streak tetap ${_streak}`;
+      window.setStatus(`🟰 Seri — lanjut tebak`, true);
+
+      /* Auto-cashout jika tidak ada lagi kartu berbeda di deck */
+      if (!_hasPlayableMove()) {
+        if (_streak > 0) {
+          await new Promise(r => setTimeout(r, 400));
+          await cashout();
+        } else {
+          /* Belum pernah benar sama sekali & deck habis → kalah */
+          _done = true;
+          _onResult(false, 0);
+        }
+        return;
+      }
+
+      _busy = false;
+      _updateButtonAvailability();
+      return;
+    }
+
+    /* ── SALAH ── */
+    const isCorrect = direction === 'hi' ? nextCard.value > _current.value : nextCard.value < _current.value;
     if (!isCorrect) {
       window.setStatus('💀 Kalah...', false);
       SFX.hilo.wrong();
@@ -198,6 +242,7 @@ const HiLo = (() => {
       return;
     }
 
+    /* ── BENAR ── */
     _cumProb *= trueProb;
     _streak++;
     _current = nextCard;
@@ -218,9 +263,7 @@ const HiLo = (() => {
     window.setStatus(`✅ Benar! Multiplier ${mult.toFixed(2)}x`, true);
     SFX.hilo.correct();
 
-    /* Auto-cashout kalau sudah kena cap, deck mau habis, atau gak ada lagi kartu
-       lebih tinggi/rendah yang bisa ditebak (fix: dulu bisa bikin 2 tombol mati
-       barengan & macet, misal kartu sekarang & sisa deck nilainya sama semua) */
+    /* Auto-cashout kalau sudah kena cap, deck mau habis, atau gak ada lagi kartu berbeda */
     if (mult >= MULT_CAP || _deck.length <= 2 || !_hasPlayableMove()) {
       await new Promise(r => setTimeout(r, 500));
       await cashout();
@@ -260,7 +303,6 @@ const HiLo = (() => {
      FINISH (kalah)
   ──────────────────────────────────── */
   function _finish(won, winRp) {
-    if (_done && won === false && winRp === 0 && _streak === 0) { /* no-op guard */ }
     _done = true;
     _onResult(won, winRp);
   }
@@ -280,17 +322,17 @@ const HiLo = (() => {
 
     _deck = _buildDeck();
     _current = _deck.pop();
-    /* Jaga-jaga: kalau entah kenapa kartu awal gak punya kandidat lebih tinggi
+    /* Jaga-jaga: kalau kartu awal gak punya kandidat lebih tinggi
        maupun lebih rendah sama sekali, kocok ulang biar gak macet dari awal */
     while (!_deck.some(c => c.value !== _current.value)) {
       _deck = _buildDeck();
       _current = _deck.pop();
     }
 
-    /* Ambang streak benar terjamin, sama pola dengan mines.js _safeTarget */
+    /* Ambang streak benar terjamin */
     _safeTarget = _isWinPath
-      ? 1 + Math.floor(Math.random() * 2) // 1-2 saat WIN (sebelumnya 3-5, kebanyakan kena 10x)
-      : 0 + Math.floor(Math.random() * 2); // 0-1 saat LOSE
+      ? 3 + Math.floor(Math.random() * 3)  // 3-5 saat WIN
+      : 1 + Math.floor(Math.random() * 2); // 1-2 saat LOSE
 
     _render();
   }
