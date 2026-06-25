@@ -1,41 +1,45 @@
 /* ══════════════════════════════════════
-   GAME: WHEEL OF FORTUNE — Vertical Ticket Barrel
+   GAME: WHEEL OF FORTUNE — Arcade Barrel (Big Bass Style)
    Expose: Wheel.init(gacha, onResult)
 
-   Tampilan terinspirasi barrel/drum arcade ticket-redemption (bukan
-   roda pizza-slice) — pita angka horizontal yang scroll vertikal di
-   dalam tabung kaca, jarum/flapper penunjuk diam di sisi kanan tengah.
+   Visual referensi: mesin arcade Big Bass Wheel
+   - Barrel silinder berdiri tegak, lebar, pita kayu berwarna tebal
+   - Setiap pita: warna solid bold (biru/kuning/oranye), angka besar
+   - Banner hitam di puncak dome: "JACKPOT 5×"
+   - Jarum/flapper kuning di sisi kanan, nunjuk ke kiri
+   - Glow shimmer di sisi kiri barrel (highlight silinder)
+   - 3 pita kelihatan sekaligus (tengah = aktif, atas/bawah = samar)
 
-   Mekanisme predetermined result (sama pola dengan roulette/plinko):
-   - _gacha.result dari app.js cuma nentuin KATEGORI:
-       'win'  -> barrel dipaksa berhenti di pita dengan mult >= 1×
-       'lose' -> barrel dipaksa berhenti di pita dengan mult < 1× (bangkrut)
-     Pita PERSIS mana yang kena tetap diacak di antara kandidat
-     kategori tsb, jadi hasil tetap kerasa random ke user.
-   - Tidak ada pilihan bet/warna — sama seperti plinko/mines, user cuma
-     pasang bet di modal lalu langsung SPIN.
-
-   8 PITA : 0×, 1×, 1.5×, 0×, 2×, 0.5×, 3×, 5×(jackpot)
+   Segments (8 pita, mirip Big Bass Wheel):
+     BANGKRUT 0× | 1× | BANGKRUT 0× | 3× | 1× | 5× JACKPOT | BANGKRUT 0× | 1×
+   Warna authentic arcade: biru gelap, biru terang, kuning, oranye/coklat
 ══════════════════════════════════════ */
 const Wheel = (() => {
 
-  /* ── Pita (bands) — urutan menentukan susunan vertikal barrel ── */
+  /* ── Pita (bands) — urutan barrel dari atas ke bawah ── */
   const SEGMENTS = [
-    { mult: 0,   label: 'BANGKRUT', sub: '0×',   color: '#1c1c1c', light: '#3a3a3a' },
-    { mult: 1,   label: '1×',       sub: 'WIN',  color: '#3d2a73', light: '#7c52b8' },
-    { mult: 1.5, label: '1.5×',     sub: 'WIN',  color: '#0e5f7a', light: '#2ec0d8' },
-    { mult: 0,   label: 'BANGKRUT', sub: '0×',   color: '#1c1c1c', light: '#3a3a3a' },
-    { mult: 2,   label: '2×',       sub: 'WIN',  color: '#1f6f4a', light: '#2ecc71' },
-    { mult: 0.5, label: '0.5×',     sub: 'WIN',  color: '#7a4a1c', light: '#e08a2b' },
-    { mult: 3,   label: '3×',       sub: 'WIN',  color: '#0e5f7a', light: '#2ec0d8' },
-    { mult: 5,   label: '5×',       sub: 'JACKPOT 👑', color: '#a8841a', light: '#f0d080' },
+    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
+    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 3,   label: '3×',       sub: 'WIN',         color: '#c47a00', light: '#f5a800',   textColor: '#fff', subColor: '#ffe085' },
+    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
+    { mult: 5,   label: '5×',       sub: 'JACKPOT 🏆',  color: '#8a1a00', light: '#d44000',   textColor: '#ffe85c', subColor: '#ffb830' },
+    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#0e5a2e', light: '#1a9a50',   textColor: '#fff', subColor: '#80ffb8' },
   ];
   const N        = SEGMENTS.length;
   const MAX_MULT = 5; // HARUS sama dengan MAX_GAME_MULTIPLIER.wheel di app.js & gacha-update.js
 
+  /* ── Warna chrome ── */
   const C = {
-    gold:      '#d4af5a', goldLight:  '#f0d080', goldDim: '#8a7040',
-    frame:     '#0e1410', ring:       '#1c8a5e', ringLight: '#3ddb96',
+    gold:       '#d4af5a',
+    goldLight:  '#f0d080',
+    chrome:     '#c0c8d0',
+    chromeLight:'#e8eef4',
+    chromeDark: '#606870',
+    frameDark:  '#080c10',
+    rimBlue:    '#1e4a8a',
+    rimLight:   '#4a90d0',
   };
 
   /* ── State ── */
@@ -50,7 +54,7 @@ const Wheel = (() => {
   /* ── Canvas ── */
   let canvas, ctx, W, H;
 
-  /* ── HTML ── */
+  /* ── HTML layout mirip mesin arcade ── */
   function render() {
     const area = document.createElement('div');
     area.id        = 'gameArea';
@@ -58,11 +62,50 @@ const Wheel = (() => {
     area.innerHTML = `
       <div class="wheel-card" id="wheelCard">
         <div class="slot-section-label">🎯 Wheel of Fortune</div>
-        <div class="wheel-canvas-wrap">
-          <canvas id="wheelCanvas"></canvas>
-          <div class="wheel-pointer"></div>
+
+        <!-- Mesin arcade: wrap luar dengan frame + jarum -->
+        <div class="wb-machine-wrap">
+
+          <!-- Top jackpot banner (hijau gelap, mirip foto) -->
+          <div class="wb-top-banner">
+            <span class="wb-top-label">JACKPOT</span>
+            <span class="wb-top-value">5×</span>
+          </div>
+
+          <!-- Row: panel kiri + barrel + jarum kanan -->
+          <div class="wb-barrel-row">
+
+            <!-- Panel kiri: dekorasi chrome/baut -->
+            <div class="wb-side-panel wb-side-left">
+              <div class="wb-bolt"></div>
+              <div class="wb-side-stripe"></div>
+              <div class="wb-bolt"></div>
+            </div>
+
+            <!-- Barrel wrapper (overflow hidden, clip capsule via CSS) -->
+            <div class="wb-barrel-outer">
+              <canvas id="wheelCanvas"></canvas>
+            </div>
+
+            <!-- Panel kanan + jarum -->
+            <div class="wb-side-panel wb-side-right">
+              <div class="wb-bolt"></div>
+              <div class="wb-pointer-wrap">
+                <div class="wb-pointer"></div>
+              </div>
+              <div class="wb-bolt"></div>
+            </div>
+
+          </div>
+
+          <!-- Bottom chrome strip -->
+          <div class="wb-bottom-strip">
+            <span class="wb-bottom-text">★ MIWA FORTUNE ★</span>
+          </div>
+
         </div>
-        <div class="wheel-result-hud" id="wheelResultHud">Putar untuk mulai</div>
+
+        <div class="wheel-result-hud" id="wheelResultHud">Tekan SPIN untuk mulai</div>
         <button class="spin-game-btn" id="wheelSpinBtn" onclick="Wheel.spin()">
           🎯 &nbsp;SPIN
         </button>
@@ -74,191 +117,365 @@ const Wheel = (() => {
     if (infoCard)       infoCard.replaceWith(area);
     else if (existGame) existGame.replaceWith(area);
     else document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
+
+    /* Inject CSS inline biar tidak perlu edit style.css */
+    _injectCSS();
+  }
+
+  function _injectCSS() {
+    if (document.getElementById('wb-injected-css')) return;
+    const style = document.createElement('style');
+    style.id = 'wb-injected-css';
+    style.textContent = `
+      /* ── Machine outer wrap ── */
+      .wb-machine-wrap {
+        width: 100%;
+        max-width: 340px;
+        margin: 0 auto 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        filter: drop-shadow(0 16px 40px rgba(0,0,0,0.7));
+      }
+
+      /* ── Top banner (hijau tua / dark green seperti foto) ── */
+      .wb-top-banner {
+        width: 88%;
+        background: linear-gradient(180deg, #1a4a1a 0%, #0d2e0d 100%);
+        border: 2px solid #2e8a2e;
+        border-bottom: none;
+        border-radius: 12px 12px 0 0;
+        padding: 6px 12px 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+        z-index: 2;
+      }
+      .wb-top-label {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        color: #4ad44a;
+        text-shadow: 0 0 8px rgba(74,212,74,0.7);
+      }
+      .wb-top-value {
+        font-size: 22px;
+        font-weight: 900;
+        color: #f0d080;
+        text-shadow: 0 0 12px rgba(240,208,80,0.9), 0 2px 0 rgba(0,0,0,0.5);
+        font-family: 'DM Serif Display', serif;
+      }
+
+      /* ── Row: kiri + barrel + kanan ── */
+      .wb-barrel-row {
+        display: flex;
+        align-items: stretch;
+        width: 100%;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* ── Side panels (chrome, kiri & kanan) ── */
+      .wb-side-panel {
+        width: 28px;
+        background: linear-gradient(180deg, #b0bcc8 0%, #6a7a88 40%, #8a9aaa 70%, #b0bcc8 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border: 1px solid #404a54;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .wb-side-left  { border-right: none; border-radius: 0; }
+      .wb-side-right { border-left:  none; border-radius: 0; }
+
+      .wb-bolt {
+        width: 10px; height: 10px;
+        background: radial-gradient(circle at 35% 35%, #e8eef4, #888fa0);
+        border-radius: 50%;
+        border: 1px solid #505860;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      }
+      .wb-side-stripe {
+        flex: 1;
+        width: 4px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.05));
+        border-radius: 2px;
+        margin: 4px 0;
+      }
+
+      /* ── Pointer wrap (kanan) ── */
+      .wb-pointer-wrap {
+        position: relative;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+      }
+      /* Segitiga kuning nunjuk ke kiri (ke barrel) */
+      .wb-pointer {
+        width: 0;
+        height: 0;
+        border-top:    13px solid transparent;
+        border-bottom: 13px solid transparent;
+        border-right:  20px solid #f0d080;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7))
+                drop-shadow(0 0 6px rgba(240,208,80,0.5));
+        position: relative;
+        left: -4px;
+      }
+
+      /* ── Barrel outer (clip dengan border-radius tinggi) ── */
+      .wb-barrel-outer {
+        flex: 1;
+        overflow: hidden;
+        border-left:  2px solid #404a54;
+        border-right: 2px solid #404a54;
+        position: relative;
+        background: #050505;
+      }
+
+      #wheelCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ── Bottom strip chrome ── */
+      .wb-bottom-strip {
+        width: 88%;
+        background: linear-gradient(180deg, #0d2e0d 0%, #1a4a1a 100%);
+        border: 2px solid #2e8a2e;
+        border-top: none;
+        border-radius: 0 0 12px 12px;
+        padding: 5px 12px;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+      }
+      .wb-bottom-text {
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        color: #4ad44a;
+        text-shadow: 0 0 6px rgba(74,212,74,0.5);
+      }
+
+      /* Glow aura saat spinning */
+      .wb-machine-wrap.is-spinning .wb-barrel-outer {
+        box-shadow: 0 0 30px rgba(240,208,80,0.3) inset;
+      }
+      .wb-machine-wrap.is-spinning .wb-top-value {
+        animation: wbJackpotPulse 0.7s ease-in-out infinite alternate;
+      }
+      @keyframes wbJackpotPulse {
+        from { text-shadow: 0 0 12px rgba(240,208,80,0.9); }
+        to   { text-shadow: 0 0 28px rgba(240,208,80,1), 0 0 50px rgba(240,160,0,0.7); }
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   /* ══════════════════════════════════════
-     CANVAS SETUP — barrel berdiri (tinggi > lebar)
+     CANVAS SETUP
   ══════════════════════════════════════ */
   function initCanvas() {
     canvas = document.getElementById('wheelCanvas');
-    const wrap = canvas.parentElement;
-    const w = Math.min(wrap.clientWidth, 280);
-    W = w;
-    H = Math.round(w * 1.25);
+    const outer = canvas.parentElement;
+    W = outer.clientWidth || 240;
+    H = Math.round(W * 1.1);  // sedikit lebih persegi (3 pita kelihatan pas)
     canvas.width  = W;
     canvas.height = H;
     ctx = canvas.getContext('2d');
-    _bandH = H / 3.1; // ~3 pita kelihatan penuh dalam viewport tiap saat
-  }
-
-  /* Bentuk capsule/barrel: dome di atas & bawah, sisi lurus */
-  function _barrelPath(x, y, w, h) {
-    const r = w / 2;
-    ctx.beginPath();
-    ctx.moveTo(x, y + r);
-    ctx.arc(x + r, y + r, r, Math.PI, Math.PI * 1.5);
-    ctx.lineTo(x + w - r, y);
-    ctx.arc(x + w - r, y + r, r, Math.PI * 1.5, 0);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arc(x + w - r, y + h - r, r, 0, Math.PI * 0.5);
-    ctx.lineTo(x + r, y + h);
-    ctx.arc(x + r, y + h - r, r, Math.PI * 0.5, Math.PI);
-    ctx.closePath();
+    _bandH = H / 3;   // tepat 3 pita penuh dalam viewport
+    outer.style.height = H + 'px';
   }
 
   /* ══════════════════════════════════════
-     DRAW BARREL pada scrollY tertentu (px)
-     Pointer FIXED di luar canvas (kanan-tengah), jadi pita yang kena
-     adalah yang center-nya pas di H/2 saat berhenti.
+     DRAW BARREL
+     - 3 pita kelihatan: atas (samar), tengah (full bright), bawah (samar)
+     - Setiap pita: warna solid + garis kayu vertikal
+     - Teks: angka besar di tengah pita, sub kecil di bawahnya
+     - Shading silinder: kiri & kanan gelap, tengah terang
+     - Garis hitam tebal antar pita
   ══════════════════════════════════════ */
   function drawBarrel(scrollY, tickFlash) {
     ctx.clearRect(0, 0, W, H);
-    const pad = 3;
-    const bw = W - pad * 2, bh = H - pad * 2;
 
-    ctx.save();
-    _barrelPath(pad, pad, bw, bh);
-    ctx.clip();
-
-    /* ── BG dasar ── */
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, W, H);
-
-    /* ── Pita-pita yang scroll (infinite loop via modulo virtual index) ── */
     const bandH = _bandH;
-    const cycle = N * bandH;
+    const midY  = H / 2;  // y tengah viewport = pointer
+
+    /* ── Gambar tiap pita yang terlihat ── */
     const minVI = Math.floor((-bandH + scrollY) / bandH) - 1;
     const maxVI = Math.ceil((H + bandH + scrollY) / bandH) + 1;
+
     for (let vi = minVI; vi <= maxVI; vi++) {
-      const y = vi * bandH - scrollY;
+      const y   = vi * bandH - scrollY;
       if (y > H + bandH || y < -bandH * 2) continue;
       const idx = ((vi % N) + N) % N;
       const seg = SEGMENTS[idx];
 
+      /* Seberapa jauh dari tengah (untuk dim atas/bawah) */
+      const centerDist = Math.abs((y + bandH / 2) - midY) / bandH;
+      const dimFactor  = Math.max(0, 1 - centerDist * 0.7); // 1 = penuh, ~0.3 = redup
+
+      /* ── Warna solid pita (dengan gradient atas-bawah tipis) ── */
       const grad = ctx.createLinearGradient(0, y, 0, y + bandH);
-      grad.addColorStop(0,   seg.light);
-      grad.addColorStop(0.5, seg.color);
-      grad.addColorStop(1,   seg.color);
+      grad.addColorStop(0,    seg.light);
+      grad.addColorStop(0.12, seg.color);
+      grad.addColorStop(0.88, seg.color);
+      grad.addColorStop(1,    seg.light + '88');
+      ctx.globalAlpha = 0.35 + dimFactor * 0.65;
       ctx.fillStyle = grad;
       ctx.fillRect(0, y, W, bandH);
 
-      /* garis kayu/wood-plank halus di tiap pita */
-      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      /* ── Garis kayu vertikal (wood grain effect) ── */
+      ctx.globalAlpha = 0.18 * dimFactor;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
       ctx.lineWidth = 1;
-      for (let lx = 8; lx < W; lx += 14) {
+      for (let lx = 6; lx < W; lx += 10) {
         ctx.beginPath();
-        ctx.moveTo(lx, y + 4);
-        ctx.lineTo(lx, y + bandH - 4);
+        ctx.moveTo(lx, y + 3);
+        ctx.lineTo(lx, y + bandH - 3);
+        ctx.stroke();
+      }
+      /* Highlight stripe tipis di kiri setiap plank */
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 0.7;
+      for (let lx = 7; lx < W; lx += 10) {
+        ctx.beginPath();
+        ctx.moveTo(lx, y + 3);
+        ctx.lineTo(lx, y + bandH - 3);
         ctx.stroke();
       }
 
-      /* pembatas antar pita */
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(0, y + bandH);
-      ctx.lineTo(W, y + bandH);
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, y + bandH + 1.5);
-      ctx.lineTo(W, y + bandH + 1.5);
-      ctx.stroke();
-
-      /* label angka besar + sub label */
+      /* ── Label angka besar ── */
+      ctx.globalAlpha = dimFactor * (seg.mult === 0 ? 0.55 : 1);
       ctx.save();
       ctx.translate(W / 2, y + bandH / 2);
-      ctx.fillStyle    = '#fff';
-      ctx.font         = `bold ${Math.round(bandH * 0.38)}px Syne, sans-serif`;
+
+      /* Shadow teks */
+      ctx.shadowColor = 'rgba(0,0,0,0.9)';
+      ctx.shadowBlur  = 8;
+
+      /* Angka utama */
+      ctx.fillStyle    = seg.textColor;
+      ctx.font         = `900 ${Math.round(bandH * 0.44)}px Syne, sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor  = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur   = 5;
-      ctx.fillText(seg.label, 0, -bandH * 0.06);
-      ctx.font = `bold ${Math.round(bandH * 0.16)}px Syne, sans-serif`;
-      ctx.shadowBlur = 3;
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(seg.sub, 0, bandH * 0.28);
+      ctx.fillText(seg.label, 0, -bandH * 0.08);
+
+      /* Sub label */
+      ctx.shadowBlur  = 4;
+      ctx.fillStyle   = seg.subColor;
+      ctx.font        = `700 ${Math.round(bandH * 0.17)}px Syne, sans-serif`;
+      ctx.fillText(seg.sub, 0, bandH * 0.30);
       ctx.restore();
+
+      ctx.globalAlpha = 1;
+
+      /* ── Garis batas antar pita: hitam tebal + highlight tipis ── */
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(0, y + bandH - 2, W, 4);
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      ctx.fillRect(0, y + bandH + 2, W, 1.5);
     }
 
-    /* ── Shading silinder (gelap di tepi kiri/kanan, terang di tengah) ── */
+    /* ── Shading silinder: gelap kiri-kanan, terang tengah (3D drum look) ── */
     const cylGrad = ctx.createLinearGradient(0, 0, W, 0);
-    cylGrad.addColorStop(0,    'rgba(0,0,0,0.55)');
-    cylGrad.addColorStop(0.18, 'rgba(0,0,0,0.12)');
-    cylGrad.addColorStop(0.5,  'rgba(255,255,255,0.06)');
-    cylGrad.addColorStop(0.82, 'rgba(0,0,0,0.12)');
-    cylGrad.addColorStop(1,    'rgba(0,0,0,0.55)');
+    cylGrad.addColorStop(0,    'rgba(0,0,0,0.62)');
+    cylGrad.addColorStop(0.10, 'rgba(0,0,0,0.22)');
+    cylGrad.addColorStop(0.28, 'rgba(0,0,0,0.05)');
+    cylGrad.addColorStop(0.50, 'rgba(255,255,255,0.07)');
+    cylGrad.addColorStop(0.72, 'rgba(0,0,0,0.05)');
+    cylGrad.addColorStop(0.90, 'rgba(0,0,0,0.22)');
+    cylGrad.addColorStop(1,    'rgba(0,0,0,0.62)');
     ctx.fillStyle = cylGrad;
     ctx.fillRect(0, 0, W, H);
 
-    /* ── flash putih sekilas tiap kali lewat 1 pita (tick) ── */
+    /* Highlight shimmer kiri (seperti pantulan cahaya di foto) */
+    const shimmer = ctx.createLinearGradient(0, 0, W * 0.32, 0);
+    shimmer.addColorStop(0,    'rgba(255,255,255,0.00)');
+    shimmer.addColorStop(0.35, 'rgba(255,255,255,0.13)');
+    shimmer.addColorStop(0.65, 'rgba(255,255,255,0.04)');
+    shimmer.addColorStop(1,    'rgba(255,255,255,0.00)');
+    ctx.fillStyle = shimmer;
+    ctx.fillRect(0, 0, W * 0.32, H);
+
+    /* ── Zona gelap atas & bawah (pita tidak aktif lebih redup) ── */
+    const fadeTop = ctx.createLinearGradient(0, 0, 0, bandH * 0.8);
+    fadeTop.addColorStop(0,   'rgba(0,0,0,0.55)');
+    fadeTop.addColorStop(1,   'rgba(0,0,0,0.00)');
+    ctx.fillStyle = fadeTop;
+    ctx.fillRect(0, 0, W, bandH * 0.8);
+
+    const fadeBot = ctx.createLinearGradient(0, H - bandH * 0.8, 0, H);
+    fadeBot.addColorStop(0,   'rgba(0,0,0,0.00)');
+    fadeBot.addColorStop(1,   'rgba(0,0,0,0.55)');
+    ctx.fillStyle = fadeBot;
+    ctx.fillRect(0, H - bandH * 0.8, W, bandH * 0.8);
+
+    /* ── Garis horizontal indicator di tengah (pointer line) ── */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(240,208,80,0.60)';
+    ctx.lineWidth   = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, midY - bandH / 2);
+    ctx.lineTo(W, midY - bandH / 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, midY + bandH / 2);
+    ctx.lineTo(W, midY + bandH / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    /* ── Flash putih saat pita berganti (tick) ── */
     if (tickFlash) {
-      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
       ctx.fillRect(0, 0, W, H);
     }
-
-    ctx.restore();
-
-    /* ── Frame/rangka luar barrel (di luar clip) ── */
-    ctx.save();
-    _barrelPath(pad, pad, bw, bh);
-    ctx.lineWidth = pad * 2 + 2;
-    ctx.strokeStyle = C.frame;
-    ctx.stroke();
-
-    /* cincin hijau metalik (dome atas & bawah, seperti foto referensi) */
-    ctx.lineWidth = 4;
-    const ringGrad = ctx.createLinearGradient(0, 0, W, 0);
-    ringGrad.addColorStop(0,   C.ring);
-    ringGrad.addColorStop(0.5, C.ringLight);
-    ringGrad.addColorStop(1,   C.ring);
-    ctx.strokeStyle = ringGrad;
-    _barrelPath(pad + 3, pad + 3, bw - 6, bh - 6);
-    ctx.stroke();
-    ctx.restore();
-
-    /* ── Banner gelap kecil di puncak dome (mirip label JACKPOT di foto) ── */
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    const bannerH = bandH * 0.22;
-    _barrelPath(pad, pad, bw, bandH * 0.3);
-    ctx.clip();
-    ctx.fillRect(0, pad, W, bannerH + pad);
-    ctx.fillStyle = C.goldLight;
-    ctx.font = `bold ${Math.round(bandH * 0.13)}px Syne, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★ MIWA FORTUNE ★', W / 2, pad + bannerH / 2 + 2);
-    ctx.restore();
   }
 
   /* ══════════════════════════════════════
-     ANIMASI SPIN — easeOut quintic, scroll vertikal beberapa putaran
+     ANIMASI SPIN — easeOut quintic
   ══════════════════════════════════════ */
   function easeOut5(t) { return 1 - Math.pow(1 - t, 5); }
 
   async function runSpin(targetIdx) {
-    const TOTAL_MS   = 4200;
-    const MIN_ROUNDS = 5;
-    const bandH = _bandH;
+    const TOTAL_MS   = 4000;
+    const MIN_ROUNDS = 6;
+    const bandH      = _bandH;
 
-    /* scrollY akhir supaya center pita targetIdx pas di H/2 */
-    const vi = targetIdx + MIN_ROUNDS * N;
+    /* scrollY akhir = center pita targetIdx pas di midY (H/2) */
+    const vi          = targetIdx + MIN_ROUNDS * N;
     const finalScroll = vi * bandH + bandH / 2 - H / 2;
 
     const t0 = performance.now();
     let _lastBand = null;
+
     return new Promise(resolve => {
       function frame(now) {
         const elapsed = now - t0;
-        const t  = Math.min(elapsed / TOTAL_MS, 1);
-        const tE = easeOut5(t);
+        const t       = Math.min(elapsed / TOTAL_MS, 1);
+        const tE      = easeOut5(t);
         const curScroll = finalScroll * tE;
+
         const bandCrossed = Math.floor(curScroll / bandH);
         let flash = false;
-        if (bandCrossed !== _lastBand) { SFX.wheel.tick(); _lastBand = bandCrossed; flash = true; }
+        if (bandCrossed !== _lastBand) {
+          SFX.wheel.tick();
+          _lastBand = bandCrossed;
+          flash = true;
+        }
+
         drawBarrel(curScroll, flash);
         if (t >= 1) { resolve(); return; }
         _raf = requestAnimationFrame(frame);
@@ -281,7 +498,7 @@ const Wheel = (() => {
     render();
     requestAnimationFrame(() => {
       initCanvas();
-      drawBarrel(0, false);
+      drawBarrel(_bandH * 0.5, false); // mulai di tengah pita pertama
     });
   }
 
@@ -295,12 +512,14 @@ const Wheel = (() => {
     window.setTokenSlotMode('hidden');
     window.setStatus('🎯 Barrel berputar...', true);
     SFX.wheel.spinStart();
-    document.querySelector('.wheel-canvas-wrap')?.classList.add('is-spinning');
+
+    document.querySelector('.wb-machine-wrap')?.classList.add('is-spinning');
 
     const hud = document.getElementById('wheelResultHud');
-    if (hud) { hud.textContent = 'Berputar...'; hud.className = 'wheel-result-hud spinning'; }
+    if (hud) { hud.textContent = '🎯 Berputar...'; hud.className = 'wheel-result-hud spinning'; }
 
-    const isWin = _gacha.result === 'win';
+    /* Tentukan target pita dari predetermined result */
+    const isWin    = _gacha.result === 'win';
     const candidates = SEGMENTS
       .map((s, i) => ({ i, mult: s.mult }))
       .filter(s => isWin ? s.mult >= 1 : s.mult < 1);
@@ -310,11 +529,12 @@ const Wheel = (() => {
 
     await runSpin(targetIdx);
     if (_done) return;
-    document.querySelector('.wheel-canvas-wrap')?.classList.remove('is-spinning');
+
+    document.querySelector('.wb-machine-wrap')?.classList.remove('is-spinning');
 
     const actualWin = seg.mult >= 1;
     if (hud) {
-      hud.textContent = actualWin ? `🏆 ${seg.label}!` : `💀 ${seg.label}`;
+      hud.textContent = actualWin ? `🏆 ${seg.label} — Menang!` : `💀 ${seg.label}`;
       hud.className   = 'wheel-result-hud ' + (actualWin ? 'win' : 'lose');
     }
     window.setStatus(actualWin ? '🏆 MENANG!' : '💀 Kalah...', actualWin);
