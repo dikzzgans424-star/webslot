@@ -371,6 +371,8 @@ const Roulette = (() => {
     const FALL_START = 0.85;   // mulai jatuh di 85% animasi
 
     const t0 = performance.now();
+    let _lastSlotCrossed = null;
+    let _dropPlayed = false;
 
     return new Promise(resolve => {
       function frame(now) {
@@ -392,10 +394,15 @@ const Roulette = (() => {
         const tE = easeOut5(t);          // satu kurva mulus, tidak ada sambungan
         const ballAng = ballStart + totalAngle * tE;
 
+        /* Tick suara tiap bola lewat batas slot */
+        const slotCrossed = Math.floor(ballAng / SLOT_ANG);
+        if (slotCrossed !== _lastSlotCrossed) { SFX.roulette.tick(); _lastSlotCrossed = slotCrossed; }
+
         /* Orbit mengecil smooth di 15% terakhir */
         const fallT   = Math.max(0, (t - FALL_START) / (1 - FALL_START));
         const fallE   = easeOut3(fallT);
         const ballOrb = R * (rTrack + (rSlot - rTrack) * fallE);
+        if (fallT > 0.05 && !_dropPlayed) { SFX.roulette.drop(); _dropPlayed = true; }
 
         drawFrame(ballOrb, ballAng);
         _raf = requestAnimationFrame(frame);
@@ -459,6 +466,7 @@ const Roulette = (() => {
     document.getElementById('betBlack').disabled = true;
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu spin dimulai
     window.setStatus('🎡 Bola berputar...', true);
+    SFX.roulette.spinStart();
 
     const isWin = _gacha.result === 'win';
 
@@ -488,6 +496,7 @@ const Roulette = (() => {
       lbl.className   = 'rch-label rch-result ' + (actualWin ? 'rch-win' : 'rch-lose');
     }
     window.setStatus(actualWin ? '🏆 MENANG!' : '💀 Kalah...', actualWin);
+    actualWin ? SFX.roulette.win() : SFX.roulette.lose();
 
     await new Promise(r => setTimeout(r, actualWin ? 1200 : 800));
     if (_done) return;

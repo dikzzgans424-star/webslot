@@ -209,6 +209,7 @@ const Plinko = (() => {
     _dropping = true;
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu bola dijatuhkan
     window.setStatus('🟣 Bola jatuh...', true);
+    SFX.plinko.drop();
 
     const hud = document.getElementById('plinkoHud');
     if (hud) hud.textContent = '🟣 Bola sedang jatuh...';
@@ -233,6 +234,7 @@ const Plinko = (() => {
       hud.textContent = `🎯 Mendarat di ${mult}x — ${won ? 'UNTUNG' : 'RUGI'}!`;
     }
     window.setStatus(won ? `🏆 MENANG ${mult}x!` : `💀 Kalah... (${mult}x)`, won);
+    won ? SFX.plinko.win() : SFX.plinko.lose();
 
     await new Promise(r => setTimeout(r, 1200));
     if (_done) return;
@@ -321,6 +323,7 @@ const Plinko = (() => {
         if (segIdx !== lastSeg && segIdx > 0 && segIdx < segCount - 1) {
           bounceStart = now;
           lastSeg = segIdx;
+          SFX.plinko.pin();
         }
 
         /* Hitung bounce: kurva sinus (0 → peak → 0), halus, time-based */

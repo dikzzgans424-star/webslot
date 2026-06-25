@@ -185,6 +185,7 @@ const Mines = (() => {
 
     _busy = true;
     cellEl.disabled = true;
+    SFX.mines.reveal();
 
     /* Tentukan apakah kotak ini bomb, berdasarkan predetermined path */
     let isBomb;
@@ -204,6 +205,7 @@ const Mines = (() => {
     if (isBomb) {
       cellEl.classList.add('mines-bomb');
       cellEl.textContent = '💣';
+      SFX.mines.bomb();
       await _revealAllOnLose(idx);
       _busy = false; // reset state walau game sudah _done (housekeeping, tidak berdampak fungsional)
       _finish(false, 0);
@@ -213,6 +215,7 @@ const Mines = (() => {
     _picks++;
     cellEl.classList.add('mines-gem');
     cellEl.textContent = '💎';
+    SFX.mines.gem();
 
     const mult = multiplierAt(_picks);
     const hud   = document.getElementById('minesHud');
@@ -254,6 +257,7 @@ const Mines = (() => {
 
     const hud = document.getElementById('minesHud');
     if (hud) hud.textContent = `🏆 Cashout di ${mult.toFixed(2)}x!`;
+    SFX.mines.cashout();
 
     window.setStatus(`🏆 MENANG ${mult.toFixed(2)}x!`, true);
     _disableAllCells();

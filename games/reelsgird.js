@@ -94,7 +94,7 @@ const ReelsGrid = (() => {
       setTimeout(() => {
         reel.style.transition = `transform ${duration}ms cubic-bezier(0.08, 0.82, 0.17, 1)`;
         reel.style.transform  = `translateY(${targetY}px)`;
-        setTimeout(resolve, duration);
+        setTimeout(() => { SFX.reelsgird.reelStop(); resolve(); }, duration);
       }, delay);
     });
   }
@@ -203,6 +203,7 @@ const ReelsGrid = (() => {
     btn.disabled = true;
     window.setTokenSlotMode('hidden');
     window.setStatus('🎰 Spinning...', true);
+    SFX.reelsgird.spin();
 
     const m      = _mode;
     const isWin  = _gacha.result === 'win';
@@ -279,9 +280,11 @@ const ReelsGrid = (() => {
     if (actualWin) {
       if (hud) hud.textContent = `🏆 ${streak} sama! ${mult}x MENANG!`;
       window.setStatus(`🏆 ${streak} SAMA! ${mult}x`, true);
+      SFX.reelsgird.win();
     } else {
       if (hud) hud.textContent = '💀 Belum beruntung...';
       window.setStatus('💀 Belum beruntung...', false);
+      SFX.reelsgird.lose();
     }
 
     await new Promise(r => setTimeout(r, actualWin ? 1400 : 800));

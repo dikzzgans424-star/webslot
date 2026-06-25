@@ -330,8 +330,13 @@ const HorseRace = (() => {
   /* ────────────────────────────────────
      MAIN LOOP
   ──────────────────────────────────── */
+  let _lastGallopAt = 0;
   function _loop() {
     _draw();
+    if (_phase === 'racing') {
+      const now = performance.now();
+      if (now - _lastGallopAt > 140) { SFX.horserace.gallop(); _lastGallopAt = now; }
+    }
     if (_phase !== 'done') {
       _rafId = requestAnimationFrame(_loop);
     }
@@ -809,6 +814,7 @@ const HorseRace = (() => {
         : `💀 ${winner.name} menang! Kamu kalah.`;
       stat.style.color = isWin ? 'var(--win-green)' : 'var(--lose-red)';
     }
+    isWin ? SFX.horserace.fanfare() : SFX.horserace.lose();
 
     const startBtn = document.getElementById('hrStartBtn');
     if (startBtn) startBtn.textContent = isWin ? '🏆 Menang!' : '💀 Kalah';

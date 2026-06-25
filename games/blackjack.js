@@ -233,6 +233,7 @@ const Blackjack = (() => {
 
     for (const o of order) {
       o.target.push(_deck.pop());
+      SFX.blackjack.deal();
       _renderHands(true);
       await _delay(280);
     }
@@ -242,6 +243,7 @@ const Blackjack = (() => {
 
     if (playerBJ) {
       _setStatus('🃏 BLACKJACK! Menang!', 'var(--win-green)');
+      SFX.blackjack.blackjack();
       _renderHands(false);
       await _delay(1200);
       _finish(true);
@@ -260,12 +262,14 @@ const Blackjack = (() => {
     _setButtons(false, false, false);
 
     _playerHand.push(_deck.pop());
+    SFX.blackjack.deal();
     _renderHands(true);
     await _delay(250);
 
     const pv = _handValue(_playerHand);
     if (_isBust(_playerHand)) {
       _setStatus(`💥 Bust! Total ${pv}`, 'var(--lose-red)');
+      SFX.blackjack.bust();
       _renderHands(false);
       await _delay(1000);
       _finish(false);
@@ -300,6 +304,7 @@ const Blackjack = (() => {
     // Dealer hit sampai ≥ 17
     while (_handValue(_dealerHand) < 17) {
       _dealerHand.push(_deck.pop());
+      SFX.blackjack.deal();
       _renderHands(false);
       _setStatus(`Dealer: ${_handValue(_dealerHand)}`);
       await _delay(600);
@@ -335,12 +340,14 @@ const Blackjack = (() => {
     _setStatus('DOUBLE — dapat 1 kartu lagi!');
 
     _playerHand.push(_deck.pop());
+    SFX.blackjack.deal();
     _renderHands(true);
     await _delay(400);
 
     const pv = _handValue(_playerHand);
     if (_isBust(_playerHand)) {
       _setStatus(`💥 Bust! Total ${pv}`, 'var(--lose-red)');
+      SFX.blackjack.bust();
       _renderHands(false);
       await _delay(1000);
       _finish(false);
@@ -359,6 +366,7 @@ const Blackjack = (() => {
     _done   = true;
     _phase  = 'done';
     window.setStatus(playerWins ? '🏆 MENANG!' : '💀 Kalah...', playerWins);
+    playerWins ? SFX.blackjack.win() : SFX.blackjack.lose();
 
     // Highlight hasil
     const wrap = document.getElementById('bjWrap');

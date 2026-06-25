@@ -408,6 +408,7 @@ const CoinFlip = (() => {
     document.getElementById('betTails').disabled = true;
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu flip dimulai
     window.setStatus('🪙 Melempar koin...', true);
+    SFX.coinflip.flip();
 
     const hud = document.getElementById('coinHud');
     if (hud) { hud.textContent = '🪙 Terbang...'; hud.className = 'coin-hud spinning'; }
@@ -417,6 +418,7 @@ const CoinFlip = (() => {
     const result = isWin ? _bet : (_bet === 'heads' ? 'tails' : 'heads');
 
     await runFlip(result);
+    SFX.coinflip.land();
 
     if (_done) return;
 
@@ -429,6 +431,7 @@ const CoinFlip = (() => {
     }
 
     window.setStatus(isWin ? '🏆 MENANG!' : '💀 Kalah...', isWin);
+    isWin ? SFX.coinflip.win() : SFX.coinflip.lose();
 
     await new Promise(r => setTimeout(r, isWin ? 1200 : 800));
     if (_done) return;

@@ -112,7 +112,7 @@ const Airplane = (() => {
         <div class="airplane-info-row">
           <div class="airplane-info-item">
             <span class="airplane-info-label">Taruhan</span>
-            <span class="airplane-info-val gold">Rp ${Number(_gacha.betAmount || _gacha.money/1000).toLocaleString('id-ID')}</span>
+            <span class="airplane-info-val gold">${_gacha.betAmount || (_gacha.money/1000)} bet</span>
           </div>
           <div class="airplane-info-item">
             <span class="airplane-info-label">Status</span>
@@ -181,6 +181,7 @@ h: 22 + Math.random() * 18,
   function _start() {
     if (_phase !== 'ready') return;
     _phase = 'flying';
+    SFX.airplane.engineStart();
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu pesawat mulai terbang
     const sb = document.getElementById('apStartBtn');
     const cb = document.getElementById('apCashBtn');
@@ -201,6 +202,7 @@ h: 22 + Math.random() * 18,
     _cashedOut = true;
     _phase     = 'done';
     clearInterval(_tickTimer);
+    SFX.airplane.cashout();
     const cb = document.getElementById('apCashBtn');
     const sb = document.getElementById('apStartBtn');
     if (cb) { cb.disabled = true; cb.classList.remove('active'); cb.classList.add('success'); }
@@ -219,6 +221,7 @@ h: 22 + Math.random() * 18,
     if (_phase === 'crashed') return;
     _phase = 'crashed';
     clearInterval(_tickTimer);
+    SFX.airplane.crash();
     _crashStartX = _ax;
     _crashStartY = _ay;
     const cb = document.getElementById('apCashBtn');
@@ -238,6 +241,7 @@ h: 22 + Math.random() * 18,
     if (_phase !== 'flying') return;
     const inc   = _multiplier >= 2.0 ? SPEED_FAST : SPEED_BASE;
     _multiplier = parseFloat((_multiplier + inc).toFixed(3));
+    SFX.airplane.ascend();
     if (_multiplier >= _crashAt) _doCrash();
   }
 
