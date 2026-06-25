@@ -119,7 +119,7 @@ export default async function handler(req, res) {
     }
 
     const body = req.body || {};
-    const { token, owner, change, historyEntry, newToken, setIsPremium, rollId } = body;
+    const { token, owner, change, historyEntry, newToken, setIsPremium, reToken, rollId } = body;
 
     const client = await getClient();
     const col = client.db(DB_NAME).collection(COLLECTION);
@@ -177,10 +177,53 @@ export default async function handler(req, res) {
     }
 
     /* ════════════════════════════════════════
+       MODE D — RE-TOKEN (bot WA)
+       Ganti token string saja, saldo/history/isPremium tetap utuh.
+       Hanya bot internal yang boleh memanggil mode ini.
+    ════════════════════════════════════════ */
+    if (reToken === true) {
+      if (!isInternalRequest(req)) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      if (!owner) {
+        return res.status(400).json({ error: "Butuh owner untuk re-token" });
+      }
+
+      /* Generate token string baru dengan format TKN + 12 karakter acak */
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let newTkn  = "TKN";
+      for (let i = 0; i < 12; i++) {
+        newTkn += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const updatedDoc = await col.findOneAndUpdate(
+        { _id: DOC_ID, "tokens.owner": owner },
+        { $set: { "tokens.$.token": newTkn } },
+        { returnDocument: "after" }
+      );
+
+      if (!updatedDoc) {
+        return res.status(404).json({ error: "Token tidak ditemukan untuk owner ini" });
+      }
+
+      const updatedToken = (updatedDoc.tokens || []).find(t => t.owner === owner);
+
+      return res.status(200).json({ success: true, token: updatedToken?.token ?? newTkn });
+    }
+
+    /* ════════════════════════════════════════
        MODE B — APPLY DELTA SALDO
     ════════════════════════════════════════ */
     if (!token && !owner) {
       return res.status(400).json({ error: "Butuh token atau owner" });
+    }
+
+    /* SECURITY FIX: delta via owner (dipakai bot depo/wth) wajib internal key.
+       Tanpa ini siapapun bisa POST { owner, change } dan manipulasi saldo
+       langsung tanpa lewat bot. Delta via token (dipakai web game) tidak wajib
+       internal key — token itu sendiri sudah jadi authenticator user. */
+    if (owner && !token && !isInternalRequest(req)) {
+      return res.status(401).json({ error: "Unauthorized: owner-mode wajib internal key" });
     }
 
     /* FIX: Tolak change = 0 (tidak ada yang berubah, tapi bisa dipakai
