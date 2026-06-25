@@ -596,6 +596,7 @@ async function _launchGame() {
   };
 
   try {
+    SFX.warmup(); /* Force-resume AudioContext sebelum game animasi mulai */
     const gameModule = (GAMES[_selectedGame] ?? GAMES['reelsgird'])();
     gameModule.init(gameObj, onGameResult);
   } catch (err) {

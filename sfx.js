@@ -36,6 +36,26 @@ const SFX = (() => {
     if (c && c.state === 'suspended') c.resume().catch(() => {});
   }
 
+  /* warmup() — panggil setelah user gesture, sebelum game mulai animasi.
+     Ini force-resume AudioContext supaya tone pertama di game tidak
+     kelewat akibat AudioContext masih suspended setelah jeda fetch. */
+  function warmup() {
+    const c = ctx();
+    if (!c) return;
+    if (c.state === 'suspended') {
+      c.resume().catch(() => {});
+    }
+    /* Mainkan silent tone (volume 0) buat "unlock" audio pipeline di
+       beberapa browser (terutama Safari & Chrome mobile). */
+    const osc  = c.createOscillator();
+    const gain = c.createGain();
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(c.currentTime);
+    osc.stop(c.currentTime + 0.001);
+  }
+
   function isMuted() { return _muted; }
 
   function setMuted(val) {
@@ -56,6 +76,12 @@ const SFX = (() => {
     if (_muted) return;
     const c = ctx();
     if (!c) return;
+    /* Jika masih suspended, resume dulu lalu defer sedikit supaya
+       AudioContext benar-benar aktif sebelum node di-schedule */
+    if (c.state === 'suspended') {
+      c.resume().then(() => tone({ freq, dur, type, vol, delay: delay + 0.05, glideTo })).catch(() => {});
+      return;
+    }
     _resume();
 
     const t0 = c.currentTime + delay;
@@ -84,6 +110,10 @@ const SFX = (() => {
     if (_muted) return;
     const c = ctx();
     if (!c) return;
+    if (c.state === 'suspended') {
+      c.resume().then(() => noise({ dur, vol, delay: delay + 0.05, filterFreq, filterType })).catch(() => {});
+      return;
+    }
     _resume();
 
     const t0 = c.currentTime + delay;
@@ -218,7 +248,7 @@ const SFX = (() => {
   };
 
   return {
-    ctx, isMuted, setMuted, toggleMute,
+    ctx, warmup, isMuted, setMuted, toggleMute,
     tone, noise, sequence,
     generic, roulette, coinflip, airplane, horserace,
     blackjack, plinko, mines, reelsgird, wheel, hilo,
