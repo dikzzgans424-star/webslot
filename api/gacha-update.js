@@ -53,7 +53,7 @@ const MAX_GAME_MULTIPLIER = {
   coinflip:  2,
   horserace: 2,
   blackjack: 2,
-  airplane:  10 * 0.95,
+  airplane:  22.22 * 0.95,
   plinko:    8,
   mines:     15,
   wheel:     5,
