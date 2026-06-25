@@ -15,6 +15,7 @@
 
   <!-- Header -->
   <div class="header-card">
+    <button id="sfxToggleBtn" class="sfx-toggle-btn" onclick="toggleSfx()" title="Mute/Unmute sound">🔊</button>
     <div class="logo-wrap">🎰</div>
     <h1>MIWA GACHA</h1>
     <p class="tagline">Premium Slot Experience</p>
@@ -62,6 +63,9 @@
 
 </div>
 
+<!-- Sound engine (shared, no audio files needed) -->
+<script src="sfx.js"></script>
+
 <!-- Game modules -->
 <script src="games/reelsgird.js"></script>
 <script src="games/roulette.js"></script>
@@ -71,6 +75,8 @@
 <script src="games/blackjack.js"></script>
 <script src="games/plinko.js"></script>
 <script src="games/mines.js"></script>
+<script src="games/wheel.js"></script>
+<script src="games/hilo.js"></script>
 
 <!-- Core -->
 <script src="app.js"></script>

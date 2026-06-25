@@ -2,7 +2,19 @@
    CORE — Token system, game picker, balance
 ══════════════════════════════════════ */
 
-/* ── DOM refs ── */
+/* ── SFX toggle (header button) ── */
+function toggleSfx() {
+  const muted = SFX.toggleMute();
+  _syncSfxBtn(muted);
+}
+function _syncSfxBtn(muted) {
+  const btn = document.getElementById('sfxToggleBtn');
+  if (btn) { btn.textContent = muted ? '🔇' : '🔊'; btn.classList.toggle('muted', muted); }
+}
+_syncSfxBtn(SFX.isMuted());
+document.addEventListener('sfxMuteChange', e => _syncSfxBtn(e.detail.muted));
+
+
 const statusText = document.getElementById('statusText');
 const statusDot  = document.getElementById('statusDot');
 
@@ -33,6 +45,8 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  8.5 * 0.95,
   plinko:    8,
   mines:     15,
+  wheel:     5,
+  hilo:      10,
 };
 
 function maxPossibleChange(game, bet) {
@@ -50,6 +64,8 @@ const GAME_MULTIPLIER = {
   blackjack: 2,
   plinko:    null,  /* Multiplier bervariasi 0.3x-10x, dihitung di plinko.js */
   mines:     null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di mines.js */
+  wheel:     null,  /* Multiplier bervariasi sesuai segment, dihitung di wheel.js */
+  hilo:      null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di hilo.js */
 };
 
 const GAME_LABELS = {
@@ -57,10 +73,12 @@ const GAME_LABELS = {
   roulette:  '🎡 Roulette',
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
-  airplane:  '✈️ AirPlane',
   blackjack: '🃏 Blackjack',
   plinko:    '🟣 Plinko',
+  airplane:  '✈️ AirPlane',
   mines:     '💣 Mines',
+  wheel:     '🎯 Wheel of Fortune',
+  hilo:      '🔮 Hi-Lo',
 };
 
 /* Game yang cuma bisa dimainkan token premium */
@@ -75,6 +93,8 @@ const GAMES = {
   blackjack: () => Blackjack,
   plinko:    () => Plinko,
   mines:     () => Mines,
+  wheel:     () => Wheel,
+  hilo:      () => HiLo,
 };
 
 /* ────────────────────────────────────────
@@ -226,6 +246,8 @@ function showTokenDashboard() {
     if (key === 'plinko')    return '0.5× – 8×';
     if (key === 'mines')     return 'Cashout × (s/d)';
     if (key === 'roulette')  return '2× / green 2.5×';
+    if (key === 'wheel')     return '0.5× – 5×';
+    if (key === 'hilo')      return 'Streak × (s/d 10×)';
     return GAME_MULTIPLIER[key] + '×';
   }
 
@@ -276,9 +298,11 @@ let _selectedGame = null;
 
 function selectGame(game) {
   if (PREMIUM_ONLY_GAMES.has(game) && !currentToken?.isPremium) {
+    SFX.generic.error();
     setStatus('🔒 Game ini khusus token Premium.');
     return;
   }
+  SFX.generic.click();
   _selectedGame = game;
   openBetModal(game);
 }
@@ -296,6 +320,8 @@ function openBetModal(game) {
   let multiText;
   if (isAirplane)       multiText = 'Multiplier';
   else if (isRoulette)  multiText = '2× menang · hijau 2.5× (house)';
+  else if (game === 'plinko' || game === 'mines' || game === 'wheel' || game === 'hilo')
+                         multiText = 'Multiplier bervariasi';
   else                  multiText = `${GAME_MULTIPLIER[game]}× kemenangan`;
 
   const modal = document.createElement('div');
@@ -369,6 +395,7 @@ function closeBetModal(restoreDashboard = false) {
 function setModalBet(amount) {
   const inp = document.getElementById('betModalInput');
   if (!inp) return;
+  SFX.generic.select();
   inp.value = Math.min(Math.max(1, Math.floor(amount)), currentToken.balance);
   onModalBetInput();
 }
@@ -417,6 +444,26 @@ function onModalBetInput() {
       Menang <strong class="gold">${prize} bet</strong> (${formatRp(betToRp(prize))})
       <br><small style="color:var(--text-muted)">Hijau = house wins (2.5× tidak bisa dibet)</small>
     `;
+  } else if (_selectedGame === 'plinko') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung slot (0.5× – 8×)</em>
+    `;
+  } else if (_selectedGame === 'mines') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung cashout (s/d 15×)</em>
+    `;
+  } else if (_selectedGame === 'wheel') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung segment (0.5× – 5×)</em>
+    `;
+  } else if (_selectedGame === 'hilo') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung streak tebakan (s/d 10×)</em>
+    `;
   } else {
     const prize = val * GAME_MULTIPLIER[_selectedGame];
     preview.innerHTML = `
@@ -432,7 +479,8 @@ function submitBetModal() {
   const inp = document.getElementById('betModalInput');
   const val = parseInt(inp?.value) || 0;
   if (val < 1 || val > currentToken.balance) return;
- 
+
+  SFX.generic.click();
   closeBetModal();
   _currentBet = val;
   _launchGame();
@@ -503,7 +551,7 @@ async function _launchGame() {
   _showWaitingPlaceholder();
 
   const betRp   = betToRp(_currentBet);
-  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines')
+  const prizeRp = (_selectedGame === 'airplane' || _selectedGame === 'plinko' || _selectedGame === 'mines' || _selectedGame === 'wheel' || _selectedGame === 'hilo')
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
@@ -530,6 +578,7 @@ async function _launchGame() {
     _gameActive = false;
     setTokenSlotMode('hidden');
     _removeWaitingPlaceholder();
+    SFX.generic.error();
     setStatus('❌ ' + err.message);
     if (dashboard) dashboard.style.display = '';
     return;
