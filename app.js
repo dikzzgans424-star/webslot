@@ -2,6 +2,7 @@
    CORE — Token system, game picker, balance
 ══════════════════════════════════════ */
 
+/* ── SFX toggle (header button) ── */
 function toggleSfx() {
   const muted = SFX.toggleMute();
   _syncSfxBtn(muted);
@@ -13,20 +14,35 @@ function _syncSfxBtn(muted) {
 _syncSfxBtn(SFX.isMuted());
 document.addEventListener('sfxMuteChange', e => _syncSfxBtn(e.detail.muted));
 
+
 const statusText = document.getElementById('statusText');
 const statusDot  = document.getElementById('statusDot');
 
+/* ── State ── */
 let currentFile  = null;
 let currentToken = null;
 let _gameActive  = false;
 
+/* HARUS SAMA dengan MAX_ABS_CHANGE di netlify/functions/gacha-update.js
+   -> kalau diubah di server, ubah juga di sini biar validasinya nyambung. */
 const MAX_ABS_CHANGE = 1000000000000000;
+
+/* Max bet per main: normal 50jt bet, premium 100jt bet */
 const MAX_BET_NORMAL  = 50000;
 const MAX_BET_PREMIUM = 100000;
 function getMaxBet() {
   return currentToken?.isPremium ? MAX_BET_PREMIUM : MAX_BET_NORMAL;
 }
 
+/* Multiplier TERBESAR yang mungkin kejadian per game (worst case buat
+   server / best case buat user), dipakai buat cegah bet yang potensi
+   kemenangannya bisa lebih besar dari MAX_ABS_CHANGE.
+   - reelsgird : mode 6x3, 6 sama = 5.5x (multiplier tertinggi di multTable
+                 semua mode — lihat games/reelsgird.js)
+   - coinflip/horserace/blackjack/roulette: tetap 2x
+   - airplane  : crash maksimum 22.22x, kena pajak 5% -> ~21.109x
+   - plinko    : slot tertinggi di tabel MULTS = 8x
+   - mines     : MULT_CAP = 15x */
 const MAX_GAME_MULTIPLIER = {
   reelsgird: 5.5,
   roulette:  2,
@@ -45,17 +61,18 @@ function maxPossibleChange(game, bet) {
   return Math.ceil(bet * (mult - 1));
 }
 
+/* ── Multiplier per game ── */
 const GAME_MULTIPLIER = {
   reelsgird:   2,
-  roulette:  2,
+  roulette:  2,     /* roulette hitung prize di dalam roulette.js sendiri */
   coinflip:  2,
   horserace: 2,
-  airplane:  null,
+  airplane:  null,  /* Multiplier, kena pajak 5% */
   blackjack: 2,
-  plinko:    null,
-  mines:     null,
-  wheel:     null,
-  hilo:      null,
+  plinko:    null,  /* Multiplier bervariasi 0.3x-10x, dihitung di plinko.js */
+  mines:     null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di mines.js */
+  wheel:     null,  /* Multiplier bervariasi sesuai segment, dihitung di wheel.js */
+  hilo:      null,  /* Multiplier bervariasi (cashout kapan saja), dihitung di hilo.js */
 };
 
 const GAME_LABELS = {
@@ -73,6 +90,7 @@ const GAME_LABELS = {
   withdraw:  '💸 Withdraw',
 };
 
+/* Hanya game yang bisa dipilih user — deposit/withdraw tidak masuk tombol */
 const GAME_BUTTONS = {
   reelsgird:   '🎰 Reels Gird',
   roulette:  '🎡 Roulette',
@@ -86,6 +104,7 @@ const GAME_BUTTONS = {
   mines:     '💣 Mines',
 };
 
+/* Game yang cuma bisa dimainkan token premium */
 const PREMIUM_ONLY_GAMES = new Set(['airplane', 'mines']);
 
 const GAMES = {
@@ -101,11 +120,18 @@ const GAMES = {
   hilo:      () => HiLo,
 };
 
+/* ────────────────────────────────────────
+   HELPERS
+──────────────────────────────────────── */
 function setStatus(msg, active = false) {
   statusText.textContent = msg;
   statusDot.classList.toggle('active', active);
 }
 
+/* ── Toggle antara: card input token  <->  tombol Back to Dashboard ──
+   mode 'input'  : tampilkan card input token (state awal, sebelum punya token)
+   mode 'back'   : tampilkan tombol back (lagi di game, tapi game belum mulai animasi)
+   mode 'hidden' : sembunyikan keduanya (game sedang berjalan/animasi) */
 function setTokenSlotMode(mode) {
   const card = document.getElementById('tokenInputCard');
   const btn  = document.getElementById('backToDashboardBtn');
@@ -116,15 +142,18 @@ function setTokenSlotMode(mode) {
 }
 
 function backToDashboard() {
-  _gameActive = false;
+  _gameActive = false; // Reset state agar bisa kembali dari lobby game
   hideGame();
   showTokenDashboard();
 }
 
+/* Update elemen saldo di dashboard yang sudah ada di DOM
+   tanpa perlu rebuild seluruh dashboard — dipanggil setelah game selesai. */
 function _updateDashboardBalance(newBalance) {
   const balEl = document.getElementById('tokenBalanceDisplay');
   if (balEl) {
     balEl.innerHTML = `${newBalance} <span class="token-balance-unit">bet</span>`;
+    /* Animasi singkat highlight supaya user tau saldo berubah */
     balEl.style.transition = 'color 0.2s';
     balEl.style.color = '#4caf82';
     setTimeout(() => { balEl.style.color = ''; }, 1200);
@@ -135,7 +164,6 @@ function _updateDashboardBalance(newBalance) {
 
 function shakeInput() {
   const inp = document.getElementById('gachaId');
-  if(!inp) return;
   inp.style.animation = 'none';
   inp.getBoundingClientRect();
   inp.style.animation = 'shake 0.4s ease';
@@ -147,24 +175,32 @@ function formatRp(amount) {
 
 function betToRp(bet) { return bet * 1000; }
 
-/* ── API via Serverless Functions ── */
+/* ────────────────────────────────────────
+   API — GitHub via Netlify Functions
+──────────────────────────────────────── */
 async function getTokenData(token) {
-  const res = await fetch('/api/profile?token=' + encodeURIComponent(token) + '&_=' + Date.now());
+  /* FIX: kirim token sebagai query param supaya server hanya return
+     data milik token itu saja — bukan expose semua token ke semua user. */
+  const res = await fetch('/api/gacha?token=' + encodeURIComponent(token) + '&_=' + Date.now());
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || 'Gagal mengambil data dari server');
   }
   const json = await res.json();
-  if (json.balance !== undefined) {
-    return { data: { tokens: [json] } };
-  }
+  if (!json.content) throw new Error(json.message || 'Content tidak ditemukan');
   return {
-    sha: json.sha,
+    sha:  json.sha,
     data: JSON.parse(atob(json.content.replace(/\n/g, '')))
   };
 }
 
+/* FIX poin 1 & 2: kirim DELTA saldo + history entry aja, bukan kirim ulang
+   seluruh array tokens. Server (gacha-update.js) yang akan apply $inc
+   secara atomik dan validasi saldo nggak boleh minus. Ini menghilangkan
+   race condition read-modify-write dan memindahkan validasi ke server. */
 async function applyGameResult(token, change, historyEntry, rollId) {
+  /* FIX: sertakan rollId agar server bisa verifikasi hasil cocok dengan
+     roll yang sudah dikeluarkan sebelumnya. */
   const res = await fetch('/api/gacha-update', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -176,6 +212,9 @@ async function applyGameResult(token, change, historyEntry, rollId) {
   }
 }
 
+/* ────────────────────────────────────────
+   STEP 1 — CEK TOKEN
+──────────────────────────────────────── */
 async function startSpin() {
   if (_gameActive) {
     setStatus('⛔ Selesaikan game yang sedang berjalan dulu.');
@@ -183,43 +222,48 @@ async function startSpin() {
     return;
   }
 
-  const tokenInputEl = document.getElementById('gachaId');
-  const token = tokenInputEl ? tokenInputEl.value.trim().toUpperCase() : '';
+  const token = document.getElementById('gachaId').value.trim().toUpperCase();
   if (!token) { setStatus('⚠ Masukkan token terlebih dahulu.'); shakeInput(); return; }
 
   const btn = document.getElementById('spinBtn');
-  if(btn) btn.disabled = true;
+  btn.disabled = true;
   setStatus('Mengecek token...', true);
 
   try {
+    /* FIX: kirim token ke server, server hanya return data token itu saja */
     currentFile  = await getTokenData(token);
     currentToken = (currentFile.data.tokens || [])[0];
+    /* Validasi ulang: pastikan token yang dikembalikan cocok */
     if (currentToken && currentToken.token.toUpperCase() !== token) {
       currentToken = null;
     }
 
-    if (!currentToken) { setStatus('❌ Token tidak ditemukan'); if(btn) btn.disabled = false; return; }
-    if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); if(btn) btn.disabled = false; return; }
+    if (!currentToken) { setStatus('❌ Token tidak ditemukan'); btn.disabled = false; return; }
+    if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); btn.disabled = false; return; }
 
+    /* ── Anti-refresh: simpan token ke localStorage ── */
     localStorage.setItem('miwa_token', currentToken.token);
 
     setStatus('✅ Token valid — pilih game!');
     showTokenDashboard();
-    if(btn) btn.disabled = false;
+    btn.disabled = false;
 
   } catch (err) {
     console.error(err);
     setStatus('❌ ERROR: ' + err.message);
-    if(btn) btn.disabled = false;
+    btn.disabled = false;
   }
 }
 
+/* ────────────────────────────────────────
+   STEP 2 — DASHBOARD TOKEN
+──────────────────────────────────────── */
 function showTokenDashboard() {
   const old = document.getElementById('tokenDashboard');
   if (old) old.remove();
   hideGame();
   
-  setTokenSlotMode('hidden');
+  setTokenSlotMode('hidden'); // Pastikan tombol back hilang di Dashboard
 
   const dashboard = document.createElement('div');
   dashboard.id        = 'tokenDashboard';
@@ -234,6 +278,7 @@ function showTokenDashboard() {
     </div>
   `).join('') : `<div class="token-history-empty">Belum ada riwayat</div>`;
 
+  /* Label multiplier roulette tampilkan "2× / hijau 2.5×" */
   function gameMultiLabel(key) {
     if (key === 'airplane')  return 'Multiplier';
     if (key === 'plinko')    return '0.5× – 8×';
@@ -245,7 +290,7 @@ function showTokenDashboard() {
   }
 
   dashboard.innerHTML = `
-    <div class="info-card-header">
+<div class="info-card-header">
       <span class="info-card-title">💳 Token Aktif</span>
       <div style="display: flex; gap: 8px; align-items: center;">
         <span class="info-card-id"></span>
@@ -280,6 +325,7 @@ function showTokenDashboard() {
       <div class="token-section-label">RIWAYAT TERAKHIR</div>
       ${historyHTML}
     </div>
+
   `;
 
   document.getElementById('tokenInputSlot').insertAdjacentElement('afterend', dashboard);
@@ -299,6 +345,9 @@ function selectGame(game) {
   openBetModal(game);
 }
 
+/* ────────────────────────────────────────
+   BET MODAL
+──────────────────────────────────────── */
 function openBetModal(game) {
   const old = document.getElementById('betModal');
   if (old) old.remove();
@@ -318,6 +367,7 @@ function openBetModal(game) {
   modal.className = 'bet-modal-overlay';
   modal.innerHTML = `
     <div class="bet-modal-box">
+
       <div class="bet-modal-header">
         <div class="bet-modal-game">${label}</div>
         <div class="bet-modal-multi">${multiText}</div>
@@ -353,11 +403,15 @@ function openBetModal(game) {
               onclick="submitBetModal()" disabled>
         ▶ &nbsp;Mulai ${label}
       </button>
+
     </div>
   `;
 
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add('show'));
+  /* FIX: jangan auto-focus input -> kalau di-focus, keyboard mobile
+     langsung muncul dan nutupin tombol shortcut (10/25/50/100/½).
+     User sekarang bisa pilih shortcut dulu, baru ketik manual kalau perlu. */
 }
 
 function closeBetModal(restoreDashboard = false) {
@@ -366,6 +420,10 @@ function closeBetModal(restoreDashboard = false) {
   modal.classList.remove('show');
   setTimeout(() => modal.remove(), 250);
 
+  /* FIX: kalau modal ditutup pakai tombol ✕ (batal, bukan lanjut main),
+     dashboard yang sempat disembunyikan saat "Main Lagi" harus
+     dimunculkan lagi. Tanpa ini, UI jadi blank karena dashboard
+     ke-stuck display:none dan gak ada game/result panel pengganti. */
   if (restoreDashboard) {
     const dashboard = document.getElementById('tokenDashboard');
     if (dashboard) dashboard.style.display = '';
@@ -388,6 +446,10 @@ function onModalBetInput() {
   const preview  = document.getElementById('betModalPreview');
   const startBtn = document.getElementById('betModalStart');
 
+  /* FIX: cegah bet yang potensi kemenangan maksimalnya bisa lebih besar
+     dari MAX_ABS_CHANGE -> kalau dibiarkan, nanti game-nya kelar tapi
+     hasil GAGAL disimpan ke server (server nolak, balik 400). Mending
+     dicegah dari awal di bet modal-nya. */
   const overLimit  = val >= 1 && maxPossibleChange(_selectedGame, val) > MAX_ABS_CHANGE;
   const overMaxBet = val >= 1 && val > getMaxBet();
 
@@ -415,13 +477,45 @@ function onModalBetInput() {
   }
 
   if (_selectedGame === 'airplane') {
-    preview.innerHTML = `Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})<br>Menang: <em>tergantung multiplier</em>`;
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung multiplier</em>
+    `;
   } else if (_selectedGame === 'roulette') {
     const prize = val * 2;
-    preview.innerHTML = `Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))}) &nbsp;→&nbsp; Menang <strong class="gold">${prize} bet</strong>`;
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      &nbsp;→&nbsp;
+      Menang <strong class="gold">${prize} bet</strong> (${formatRp(betToRp(prize))})
+      <br><small style="color:var(--text-muted)">Hijau = house wins (2.5× tidak bisa dibet)</small>
+    `;
+  } else if (_selectedGame === 'plinko') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung slot (0.5× – 8×)</em>
+    `;
+  } else if (_selectedGame === 'mines') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung cashout (s/d 15×)</em>
+    `;
+  } else if (_selectedGame === 'wheel') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung segment (0.5× – 5×)</em>
+    `;
+  } else if (_selectedGame === 'hilo') {
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      <br>Menang: <em>tergantung streak tebakan (s/d 10×)</em>
+    `;
   } else {
-    const prize = val * (GAME_MULTIPLIER[_selectedGame] || 2);
-    preview.innerHTML = `Taruhan <strong>${val} bet</strong> &nbsp;→&nbsp; Menang <strong class="gold">${prize} bet</strong>`;
+    const prize = val * GAME_MULTIPLIER[_selectedGame];
+    preview.innerHTML = `
+      Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
+      &nbsp;→&nbsp;
+      Menang <strong class="gold">${prize} bet</strong> (${formatRp(betToRp(prize))})
+    `;
   }
   preview.className = 'bet-modal-preview active';
 }
@@ -437,9 +531,15 @@ function submitBetModal() {
   _launchGame();
 }
 
+/* ────────────────────────────────────────
+   STEP 3 — LAUNCH GAME
+──────────────────────────────────────── */
 let _currentBet    = 0;
-let _currentRollId = null;
+let _currentRollId = null;  /* FIX: rollId dari server, untuk verifikasi saat simpan */
 
+/* Placeholder "waiting" yang tampil di posisi slot/gameArea selagi
+   nunggu server roll. Pakai id 'gameArea' sama seperti game module,
+   jadi otomatis ke-replace begitu game asli mount. */
 function _showWaitingPlaceholder() {
   const old = document.getElementById('gameArea');
   if (old) old.remove();
@@ -481,13 +581,22 @@ async function _launchGame() {
     setStatus(`⚠ Max bet ${currentToken.isPremium ? 'Premium' : 'Normal'}: ${getMaxBet().toLocaleString()} bet`);
     return;
   }
+  if (maxPossibleChange(_selectedGame, _currentBet) > MAX_ABS_CHANGE) {
+    setStatus('⚠ Bet terlalu besar, potensi kemenangan melebihi limit sistem.');
+    return;
+  }
 
   _gameActive = true;
-  setTokenSlotMode('back');
+  setTokenSlotMode('back'); // Tampilkan tombol back selama di lobby/waiting start
 
   const dashboard = document.getElementById('tokenDashboard');
   if (dashboard) dashboard.style.display = 'none';
 
+  /* FIX: tampilkan placeholder "waiting" persis di posisi slot/game-area
+     (bukan cuma teks status) selagi nunggu server roll. Pakai id
+     'gameArea' yang sama dipakai semua game module — begitu
+     gameModule.init() mount game asli, placeholder ini otomatis
+     ke-replace (lihat fungsi _mount di tiap games/*.js). */
   _showWaitingPlaceholder();
 
   const betRp   = betToRp(_currentBet);
@@ -495,6 +604,9 @@ async function _launchGame() {
     ? betRp
     : betToRp(_currentBet * GAME_MULTIPLIER[_selectedGame]);
 
+  /* FIX: hasil win/lose sekarang ditentukan server via endpoint baru.
+     Client request dulu ke /gacha-roll, server yang roll RNG dan return
+     hasilnya. Ini mencegah manipulasi result lewat DevTools. */
   let _rollResult;
   try {
     const rollRes = await fetch('/api/gacha-roll', {
@@ -521,22 +633,23 @@ async function _launchGame() {
     return;
   }
 
-  _currentRollId = _rollResult.rollId;
+  _currentRollId = _rollResult.rollId;  /* simpan di luar gameObj juga */
   const gameObj = {
     token:     currentToken.token,
     type:      _selectedGame,
     money:     prizeRp,
     betAmount: _currentBet,
     isPremium: currentToken.isPremium || false,
-    result:    _rollResult.result,
-    rollId:    _rollResult.rollId,
+    result:    _rollResult.result,   /* 'win' | 'lose' — dari server */
+    rollId:    _rollResult.rollId,   /* ID unik untuk verifikasi saat simpan hasil */
   };
 
   try {
-    SFX.warmup();
+    SFX.warmup(); /* Force-resume AudioContext sebelum game animasi mulai */
     const gameModule = (GAMES[_selectedGame] ?? GAMES['reelsgird'])();
     gameModule.init(gameObj, onGameResult);
   } catch (err) {
+    /* Jangan biarkan _gameActive stuck true jika init() error */
     _gameActive = false;
     setTokenSlotMode('hidden');
     _removeWaitingPlaceholder();
@@ -554,19 +667,36 @@ function hideGame() {
   if (existing) existing.remove();
 }
 
+/* ────────────────────────────────────────
+   RESULT CALLBACK
+   moneyWon : Rp yang didapat dari game module
+              roulette : betAmount * 2 * 1000  (dari roulette.js)
+              Airplane : bet * multiplier * 0.95 (dari airplane.js)
+              lainnya  : betAmount * GAME_MULTIPLIER * 1000
+──────────────────────────────────────── */
 async function onGameResult(isWin, moneyWon) {
   _gameActive = false;
-  setTokenSlotMode('hidden');
+  setTokenSlotMode('hidden'); // Sembunyikan tombol saat result layar selesai muncul
 
   let balanceChange = 0;
   if (_selectedGame === 'plinko') {
+    /* Plinko selalu punya payout (0.3x-10x), walau "rugi" itu cuma
+       rugi SEBAGIAN bet, bukan kehilangan semuanya */
     const wonBet  = Math.floor(moneyWon / 1000);
     balanceChange = wonBet - _currentBet;
   } else if (isWin) {
     if (_selectedGame === 'airplane' || _selectedGame === 'mines' || _selectedGame === 'wheel') {
+      /* Variable multiplier games: moneyWon = total prize Rp (termasuk bet kembali)
+         balanceChange = net gain = (prize / 1000) - bet
+         Kalau mult=1x: prize = bet * 1 * 1000, balanceChange = bet - bet = 0
+         → ini valid (balik modal), tapi server tolak change=0.
+         Treat mult=1 sebagai minimal +1 supaya bisa disimpan, atau
+         anggap lose jika change=0 (user tidak untung tapi tidak rugi).
+         Solusi: jika balanceChange=0, skip save (tidak ada yang berubah). */
       const wonBet = Math.floor(moneyWon / 1000);
       balanceChange = wonBet - _currentBet;
     } else {
+      /* roulette & game lain — moneyWon = prize dalam Rp */
       const prizeBet = Math.floor(moneyWon / 1000);
       balanceChange  = prizeBet - _currentBet;
     }
@@ -588,13 +718,16 @@ async function onGameResult(isWin, moneyWon) {
   let saveOk = false;
   try {
     if (balanceChange === 0) {
+      /* Balik modal (misal wheel 1×) — tidak ada perubahan saldo,
+         tidak perlu kirim ke server (server tolak change=0 anyway).
+         Anggap "save ok" tapi tidak ada yang ditulis. */
       saveOk = true;
     } else {
       await applyGameResult(currentToken.token, balanceChange, histEntry, _currentRollId);
       currentToken.balance = newBalance;
       if (!currentToken.history) currentToken.history = [];
       currentToken.history.push(histEntry);
-      _updateDashboardBalance(newBalance);
+      _updateDashboardBalance(newBalance); /* Bug fix: refresh saldo di dashboard */
       saveOk = true;
     }
   } catch (err) {
@@ -605,6 +738,9 @@ async function onGameResult(isWin, moneyWon) {
   showResultInline(isWin, moneyWon, balanceChange, saveOk ? newBalance : currentToken.balance, saveOk);
 }
 
+/* ────────────────────────────────────────
+   RESULT PANEL
+──────────────────────────────────────── */
 function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   const area      = document.createElement('div');
   area.id         = 'gameArea';
@@ -618,7 +754,7 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
 
   const saveNote = saveOk
     ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
-    : `<div class="result-save-err">⚠ Gagal menyimpan</div>`;
+    : `<div class="result-save-err">⚠ Gagal menyimpan (saldo tidak sinkron) — coba logout &amp; login ulang token untuk cek saldo terbaru. Hubungi admin kalau masih bermasalah (${currentToken?.token})</div>`;
 
   area.innerHTML = `
     <div class="result-panel ${panelClass}">
@@ -634,6 +770,11 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
       <div class="result-balance-new">
         Saldo token sekarang:
         <strong>${newBalance} bet</strong>
+        <span>(${formatRp(betToRp(newBalance))})</span>
+      </div>
+
+      <div class="result-desc">
+        ${isWin ? 'Saldo token bertambah!' : 'Lebih beruntung di ronde berikutnya.'}
       </div>
 
       <div class="result-meta">${saveNote}</div>
@@ -652,27 +793,41 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   document.getElementById('tokenInputSlot').insertAdjacentElement('afterend', area);
 }
 
+/* "Main Lagi" -> langsung balik ke bet modal game yang sama
+   (skip dashboard). "Back Dashboard" -> pakai backToDashboard() yang
+   udah ada di atas. */
 function playAgainSameGame() {
-  hideGame();
+  hideGame(); // buang result panel
   if (!_selectedGame || !currentToken || currentToken.balance < 1) {
     backToDashboard();
     return;
   }
-  selectGame(_selectedGame);
+  selectGame(_selectedGame); // re-validasi premium/saldo, lalu buka bet modal
 }
 
-const tokenFormEl = document.getElementById('tokenForm');
-if (tokenFormEl) {
-  tokenFormEl.addEventListener('submit', e => {
-    e.preventDefault();
-    startSpin();
-  });
-}
 
+/* ────────────────────────────────────────
+   EVENTS
+──────────────────────────────────────── */
+/* FIX: pakai event 'submit' dari <form>, bukan onclick/keydown manual.
+   Ini PENTING biar browser nyimpen value yang pernah diketik ke
+   autocomplete history (Chrome cuma nyimpen form-history pas ada
+   event submit yang ke-trigger, walau di-preventDefault). Enter di
+   input & klik tombol "Cek Token" otomatis sama-sama men-trigger ini. */
+document.getElementById('tokenForm').addEventListener('submit', e => {
+  e.preventDefault();
+  startSpin();
+});
+
+/* ────────────────────────────────────────
+   ANTI-REFRESH & AUTO-LOGIN
+──────────────────────────────────────── */
+
+// 1. Peringatan jika refresh/tutup tab saat game berjalan
 window.addEventListener('beforeunload', (e) => {
   if (_gameActive) {
     e.preventDefault();
-    e.returnValue = 'Game sedang berjalan!';
+    e.returnValue = 'Game sedang berjalan! Jika Anda keluar, permainan akan terhenti.';
   }
 });
 
@@ -731,12 +886,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (tokenParam) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }
+  } 
 });
 
+
+// 3. Fungsi Keluar / Ganti Token
 function logoutToken() {
   if (_gameActive) {
-    setStatus('⛔ Selesaikan game dulu!');
+    setStatus('⛔ Selesaikan game dulu sebelum ganti token!');
     shakeInput();
     return;
   }
