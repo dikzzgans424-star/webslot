@@ -41,7 +41,6 @@ body {
   position: relative;
 }
 
-/* ── Ambient lighting ── */
 body::before {
   content: '';
   position: fixed;
@@ -54,7 +53,6 @@ body::before {
     radial-gradient(ellipse 40% 60% at 50% 50%, rgba(212,175,90,0.025) 0%, transparent 80%);
 }
 
-/* ── Noise texture ── */
 body::after {
   content: '';
   position: fixed;
@@ -73,7 +71,6 @@ body::after {
   z-index: 10;
 }
 
-/* ── Header ── */
 .header-card {
   text-align: center;
   padding: 12px 0 28px;
@@ -122,19 +119,20 @@ body::after {
   color: var(--text-muted);
 }
 
-/* ── Divider ── */
 .divider {
   display: flex;
   align-items: center;
   gap: 12px;
   margin: 0 0 20px;
 }
+
 .divider::before, .divider::after {
   content: '';
   flex: 1;
   height: 1px;
   background: linear-gradient(to right, transparent, var(--border-glow), transparent);
 }
+
 .divider span {
   font-size: 10px;
   letter-spacing: 3px;
@@ -143,7 +141,6 @@ body::after {
   text-transform: uppercase;
 }
 
-/* ── Glass card base ── */
 .glass-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -162,7 +159,11 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-/* ── Back to Dashboard button (menggantikan posisi input token) ── */
+.profile-spec-card {
+  border: 1px solid rgba(212,175,90,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(212,175,90,0.08);
+}
+
 .back-dashboard-btn {
   width: 100%;
   background: var(--bg-card);
@@ -188,7 +189,6 @@ body::after {
   transform: scale(0.98);
 }
 
-/* ── Input section ── */
 .input-label {
   font-size: 10px;
   font-weight: 700;
@@ -250,7 +250,6 @@ body::after {
   box-shadow: 0 0 0 3px rgba(212,175,90,0.08);
 }
 
-/* ── Spin button ── */
 #spinBtn {
   height: 50px;
   padding: 0 22px;
@@ -289,7 +288,6 @@ body::after {
   transform: none;
 }
 
-/* ── Slot card ── */
 .slot-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -318,12 +316,9 @@ body::after {
   margin-bottom: 18px;
 }
 
-/* ── Slot machine ── */
-/* ── Slot machine (legacy, tidak dipakai) ── */
 .slot-machine { display: flex; justify-content: center; align-items: center; gap: 8px; }
 .slot-separator { width: 2px; height: 30px; background: var(--border-soft); border-radius: 2px; }
 
-/* ── 3×3 Grid ── */
 .slot-grid-3x3 {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -335,7 +330,7 @@ body::after {
 
 .slot-window {
   width: 100%;
-  height: 80px;                 /* sinkron dengan ITEM_H = 80 di slot3x3.js */
+  height: 80px;
   border-radius: var(--radius-md);
   background: var(--bg-base);
   border: 1px solid var(--border-mid);
@@ -344,7 +339,6 @@ body::after {
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-/* Top & bottom fade */
 .slot-window::before,
 .slot-window::after {
   content: '';
@@ -365,7 +359,7 @@ body::after {
 }
 
 .slot-reel div {
-  height: 80px;                 /* sinkron dengan ITEM_H = 80 di slot3x3.js */
+  height: 80px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -373,7 +367,6 @@ body::after {
   user-select: none;
 }
 
-/* ── Payline ── */
 .payline-wrap {
   position: relative;
   margin-top: 16px;
@@ -401,7 +394,6 @@ body::after {
 .payline-dot.right  { right: 20%; }
 .payline-dot.center { left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; }
 
-/* ── Status card ── */
 .status-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -467,14 +459,12 @@ body::after {
   line-height: 1.6;
 }
 
-/* ── Reel states ── */
 .slot-window.spinning  { border-color: rgba(212,175,90,0.2); }
 .slot-window.win-glow  {
   border-color: rgba(76,175,130,0.5);
   box-shadow: 0 0 20px rgba(76,175,130,0.15);
 }
 
-/* ── Info Card ── */
 .info-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -621,7 +611,6 @@ body::after {
 .start-game-btn:hover  { transform: translateY(-1px); }
 .start-game-btn:active { transform: scale(0.97); }
 
-/* ── Result panel: 2 tombol (Main Lagi + Back Dashboard) ── */
 .result-action-row {
   display: flex;
   flex-direction: column;
@@ -630,30 +619,6 @@ body::after {
 
 .result-action-row .start-game-btn { width: 100%; }
 
-.back-dashboard-btn {
-  width: 100%;
-  height: 44px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  background: rgba(255,255,255,0.04);
-  transition: transform 0.15s, background 0.15s, color 0.15s;
-}
-
-.back-dashboard-btn:hover {
-  background: rgba(255,255,255,0.08);
-  color: var(--text-primary);
-}
-
-.back-dashboard-btn:active { transform: scale(0.97); }
-
-/* ── Spin game button ── */
 .spin-game-btn {
   width: 100%;
   height: 52px;
@@ -687,7 +652,6 @@ body::after {
 .spin-game-btn:active { transform: scale(0.97); }
 .spin-game-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
-/* ── Game area ── */
 .game-area { margin-bottom: 14px; }
 
 .game-area.slide-in {
@@ -699,7 +663,6 @@ body::after {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Inline Result Panel ── */
 .result-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -839,7 +802,6 @@ body::after {
 .close-btn:hover  { background: rgba(212,175,90,0.08); transform: translateY(-1px); }
 .close-btn:active { transform: scale(0.98); }
 
-/* ── Footer ── */
 .footer { text-align: center; padding-top: 24px; }
 .footer span {
   font-size: 10px;
@@ -848,7 +810,6 @@ body::after {
   text-transform: uppercase;
 }
 
-/* ── Mobile ── */
 @media (max-width: 420px) {
   body { padding: 24px 14px 48px; }
   .slot-grid-3x3 { max-width: 270px; gap: 6px; }
@@ -863,8 +824,6 @@ body::after {
   60%      { transform: translateX(-4px); }
   80%      { transform: translateX(4px); }
 }
-
-/* ===== WIN RULE ===== */
 
 .win-rule {
   margin-top: 18px;
@@ -895,7 +854,7 @@ body::after {
   font-size: 12px;
   color: var(--text-secondary);
 }
-/* ── Result Claim Box (WIN) ── */
+
 .result-claim-box {
   margin-top: 20px;
   background: rgba(76,175,130,0.06);
@@ -985,9 +944,6 @@ body::after {
 .result-lose-icon { font-size: 28px; flex-shrink: 0; }
 .result-lose-msg  { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
 
-/* ══════════════════════════════════════
-   ROULETTE — Canvas Wheel
-══════════════════════════════════════ */
 .roulette-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -1005,7 +961,6 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-/* Canvas wrapper — square, centered */
 .roulette-canvas-wrap {
   position: relative;
   width: 100%;
@@ -1021,7 +976,6 @@ body::after {
   border-radius: 50%;
 }
 
-/* HUD overlay in center */
 .roulette-center-hud {
   position: absolute;
   top: 50%;
@@ -1029,7 +983,6 @@ body::after {
   transform: translate(-50%, -50%);
   pointer-events: none;
   text-align: center;
-  /* size matches rInner (~40% of R) */
   width: 36%;
   height: 36%;
   display: flex;
@@ -1061,7 +1014,6 @@ body::after {
   to   { opacity: 1; }
 }
 
-/* ── Bet section ── */
 .roulette-bet-section { margin-bottom: 4px; }
 
 .roulette-bet-label {
@@ -1125,10 +1077,6 @@ body::after {
   .roulette-canvas-wrap { max-width: 280px; }
 }
 
-/* ══════════════════════════════════════
-   COIN FLIP STYLES
-══════════════════════════════════════ */
-
 .coin-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -1147,7 +1095,6 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-/* Canvas wrap + shadow */
 .coin-canvas-wrap {
   position: relative;
   width: 260px;
@@ -1179,7 +1126,6 @@ body::after {
   transition: none;
 }
 
-/* HUD text under coin */
 .coin-hud {
   text-align: center;
   font-size: 13px;
@@ -1199,7 +1145,6 @@ body::after {
 .coin-hud.hud-win   { color: var(--win-green); }
 .coin-hud.hud-lose  { color: var(--lose-red); }
 
-/* Bet buttons — heads/tails reuse roulette classes + overrides */
 .coin-bet-section { margin-bottom: 4px; }
 
 .bet-btn.bet-heads.selected {
@@ -1220,10 +1165,6 @@ body::after {
   .coin-canvas-wrap { width: 220px; height: 220px; }
 }
 
-/* ══════════════════════════════════════
-   AIRPLANE — Crash Game
-══════════════════════════════════════ */
-
 .airplane-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -1242,7 +1183,6 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-/* ── Canvas wrap ── */
 .airplane-canvas-wrap {
   position: relative;
   width: 100%;
@@ -1259,7 +1199,6 @@ body::after {
   height: 280px;
 }
 
-/* ── Info row ── */
 .airplane-info-row {
   display: flex;
   gap: 10px;
@@ -1297,7 +1236,6 @@ body::after {
   font-size: 15px;
 }
 
-/* ── Airplane 2-button row ── */
 .ap-btn-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1324,7 +1262,6 @@ body::after {
 
 .ap-btn:disabled { cursor: not-allowed; transform: none !important; }
 
-/* ── CASHOUT (left) — green ── */
 .ap-btn-cashout {
   background: linear-gradient(135deg, #3a7a5a, #2d5e45);
   color: #a0e0c0;
@@ -1343,7 +1280,6 @@ body::after {
   animation: none;
 }
 
-/* ── START (right) — gold ── */
 .ap-btn-start {
   height: 58px;
   padding: 0 20px;
@@ -1375,10 +1311,6 @@ body::after {
   #apCanvas { height: 220px; }
 }
 
-/* ══════════════════════════════════════
-   HORSE RACE
-══════════════════════════════════════ */
-
 .hr-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -1397,10 +1329,6 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-
-/* 👇👇👇 PASTE KODE BARUNYA DI SINI 👇👇👇 */
-
-/* ── Dedicated Horse Race Info Row Style ── */
 .hr-info-row {
   display: flex;
   gap: 10px;
@@ -1438,10 +1366,6 @@ body::after {
   font-size: 15px;
 }
 
-/* 👆👆👆 SAMPAI SINI 👆👆👆 */
-
-
-/* ── Canvas ── */
 .hr-canvas-wrap {
   position: relative;
   width: 100%;
@@ -1457,7 +1381,6 @@ body::after {
   width: 100%;
 }
 
-/* Lane labels overlay */
 .hr-lane-labels {
   position: absolute;
   top: 0; left: 0;
@@ -1476,7 +1399,6 @@ body::after {
   font-family: 'Syne', sans-serif;
 }
 
-/* ── Pick section ── */
 .hr-pick-section {
   margin-bottom: 14px;
   transition: opacity 0.3s, transform 0.3s;
@@ -1546,7 +1468,6 @@ body::after {
   flex-shrink: 0;
 }
 
-/* ── Start button ── */
 .hr-start-btn {
   width: 100%;
   height: 52px;
@@ -1580,10 +1501,6 @@ body::after {
   .hr-horse-btn { padding: 8px 9px; font-size: 10px; }
   .hr-horse-btns { gap: 5px; }
 }
-
-/* ══════════════════════════════════════
-   BET MODAL
-══════════════════════════════════════ */
 
 .bet-modal-overlay {
   position: fixed;
@@ -1621,7 +1538,6 @@ body::after {
   position: relative;
 }
 
-/* Header */
 .bet-modal-header {
   display: flex;
   flex-direction: column;
@@ -1672,7 +1588,6 @@ body::after {
   color: var(--text-primary);
 }
 
-/* Saldo */
 .bet-modal-balance {
   text-align: center;
   font-size: 13px;
@@ -1684,7 +1599,6 @@ body::after {
   color: var(--text-primary);
 }
 
-/* Input */
 .bet-modal-label {
   font-size: 11px;
   letter-spacing: 1px;
@@ -1736,7 +1650,6 @@ body::after {
   background: rgba(212,175,90,0.22);
 }
 
-/* Preview */
 .bet-modal-preview {
   min-height: 36px;
   font-size: 13px;
@@ -1762,7 +1675,6 @@ body::after {
   color: var(--gold);
 }
 
-/* Quick pick */
 .bet-modal-quick-label {
   font-size: 11px;
   letter-spacing: 1px;
@@ -1798,7 +1710,6 @@ body::after {
   color: var(--gold);
 }
 
-/* Tombol mulai */
 .bet-modal-start {
   width: 100%;
   padding: 14px;
@@ -1836,10 +1747,6 @@ body::after {
   .bet-modal-quick-btn { font-size: 12px; padding: 7px 4px; }
 }
 
-/* ══════════════════════════════════════
-   TOKEN DASHBOARD
-══════════════════════════════════════ */
-
 #tokenDashboard {
   display: flex;
   flex-direction: column;
@@ -1852,7 +1759,6 @@ body::after {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Saldo ── */
 .token-balance-wrap {
   background: linear-gradient(140deg, rgba(212,175,90,0.10) 0%, rgba(212,175,90,0.03) 100%);
   border: 1px solid var(--border-glow);
@@ -1908,7 +1814,6 @@ body::after {
   letter-spacing: 1px;
 }
 
-/* ── Section wrapper ── */
 .token-game-section,
 .token-history-section {
   background: var(--bg-card);
@@ -1937,28 +1842,27 @@ body::after {
   margin-bottom: 12px;
 }
 
-/* ── Game grid ── */
 .token-game-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* Berubah jadi 2 kolom */
-  gap: 12px; /* Jarak antar tombol dilebarkan */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
 
 .token-game-btn {
   display: flex;
-  flex-direction: column; /* Konten ditumpuk atas-bawah */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
   background: var(--bg-raised);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-md);
-  padding: 22px 14px; /* Tombol dibikin lebih tinggi/chunky */
+  padding: 22px 14px;
   cursor: pointer;
   transition: background .18s, border-color .18s, transform .12s, box-shadow .18s;
   color: var(--text-secondary);
   font-family: 'Syne', sans-serif;
-  font-size: 15px; /* Font nama game dibesarkan */
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.5px;
   text-align: center;
@@ -1967,7 +1871,7 @@ body::after {
 .token-game-btn:hover {
   background: rgba(212,175,90,0.08);
   border-color: rgba(212,175,90,0.3);
-  transform: translateY(-3px); /* Animasi angkat lebih kerasa */
+  transform: translateY(-3px);
   box-shadow: 0 6px 20px rgba(212,175,90,0.12);
   color: var(--text-primary);
 }
@@ -1999,8 +1903,8 @@ body::after {
 .token-game-multi {
   font-size: 11px;
   font-weight: 700;
-  color: var(--gold); /* Default langsung nyala gold */
-  background: rgba(212,175,90,0.12); /* Dikasih background kapsul */
+  color: var(--gold);
+  background: rgba(212,175,90,0.12);
   padding: 5px 12px;
   border-radius: 12px;
   letter-spacing: 1px;
@@ -2009,10 +1913,9 @@ body::after {
 
 .token-game-btn.active .token-game-multi,
 .token-game-btn:hover  .token-game-multi {
-  background: rgba(212,175,90,0.25); /* Background makin terang pas dihover */
+  background: rgba(212,175,90,0.25);
 }
 
-/* ── History rows ── */
 .token-history-row {
   display: flex;
   align-items: center;
@@ -2067,131 +1970,6 @@ body::after {
   letter-spacing: 0.5px;
 }
 
-/* ── Withdraw button ── */
-.token-withdraw-btn {
-  width: 100%;
-  padding: 15px;
-  background: transparent;
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-md);
-  color: var(--gold);
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background .2s, border-color .2s, transform .12s, box-shadow .2s;
-  margin-top: 4px;
-}
-
-.token-withdraw-btn:hover {
-  background: rgba(212,175,90,0.08);
-  border-color: var(--gold);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(212,175,90,0.15);
-}
-
-.token-withdraw-btn:active {
-  transform: scale(0.98);
-}
-
-/* ── Withdraw confirm modal ── */
-.withdraw-confirm-box {
-  background: linear-gradient(160deg, #1a1a24, #111118);
-  border: 1px solid var(--border-glow);
-  border-radius: var(--radius-xl);
-  padding: 28px 24px 24px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  animation: tdFadeIn .3s ease both;
-}
-
-.withdraw-confirm-box::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.5), transparent);
-}
-
-.withdraw-confirm-title {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: var(--gold-dim);
-  margin-bottom: 14px;
-}
-
-.withdraw-confirm-amount {
-  font-family: 'DM Serif Display', serif;
-  font-size: 36px;
-  color: var(--gold-light);
-  line-height: 1;
-  margin-bottom: 6px;
-}
-
-.withdraw-confirm-rp {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 22px;
-}
-
-.withdraw-confirm-btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.withdraw-confirm-yes {
-  padding: 14px;
-  background: linear-gradient(135deg, var(--gold-light), var(--gold));
-  border: none;
-  border-radius: var(--radius-md);
-  color: var(--bg-base);
-  font-family: 'Syne', sans-serif;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: transform .15s, box-shadow .15s;
-  box-shadow: 0 4px 16px rgba(212,175,90,0.25);
-}
-
-.withdraw-confirm-yes:hover  { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(212,175,90,0.4); }
-.withdraw-confirm-yes:active { transform: scale(0.97); }
-
-.withdraw-confirm-no {
-  padding: 14px;
-  background: transparent;
-  border: 1px solid var(--border-mid);
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  font-family: 'Syne', sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-}
-
-.withdraw-confirm-no:hover { background: rgba(255,255,255,0.05); border-color: var(--border-mid); }
-
-@media (max-width: 420px) {
-  .token-balance-value { font-size: 42px; }
-  .token-game-grid { gap: 8px; }
-  .token-game-btn { padding: 18px 8px; font-size: 13px; gap: 8px; }
-  .token-game-multi { font-size: 10px; padding: 4px 8px; }
-}
-
-/* ══════════════════════════════════════
-   BLACKJACK
-══════════════════════════════════════ */
-
 .bj-card-wrap {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -2218,7 +1996,6 @@ body::after {
   text-transform: uppercase;
 }
 
-/* ── Sides (dealer / player) ── */
 .bj-side { display: flex; flex-direction: column; gap: 10px; }
 
 .bj-side-label {
@@ -2243,7 +2020,6 @@ body::after {
 .bj-hand-val.bust { color: var(--lose-red); }
 .bj-hand-val.bj   { color: var(--win-green); }
 
-/* ── Card row ── */
 .bj-cards {
   display: flex;
   gap: 8px;
@@ -2252,7 +2028,6 @@ body::after {
   align-items: flex-start;
 }
 
-/* ── Kartu ── */
 .bj-card {
   width: 58px;
   height: 84px;
@@ -2333,39 +2108,6 @@ body::after {
   transform: translate(-50%, -50%);
 }
 
-/* ── Divider ── */
-.bj-divider {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.bj-divider-line {
-  flex: 1;
-  height: 1px;
-  background: var(--border-soft);
-}
-.bj-divider-chip {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  color: var(--text-muted);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-soft);
-  border-radius: 20px;
-  padding: 4px 10px;
-}
-
-/* ── Status ── */
-.bj-status {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-align: center;
-  min-height: 18px;
-  transition: color 0.2s;
-}
-
-/* ── Action buttons ── */
 .bj-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -2419,66 +2161,6 @@ body::after {
   border-color: rgba(212,175,90,0.5);
 }
 
-/* ── Info row ── */
-.bj-info-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: var(--bg-raised);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-soft);
-}
-
-.bj-info-item { display: flex; flex-direction: column; gap: 2px; }
-.bj-info-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-.bj-info-val {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-.bj-info-val.gold { color: var(--gold); }
-
-/* ── Rules ── */
-.bj-rules {
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.bj-rules-title {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-.bj-rules-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.bj-rules-body span {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-@media (max-width: 380px) {
-  .bj-card { width: 50px; height: 74px; }
-  .bj-card-suit { font-size: 22px; }
-}
-
-/* ════════════════════════════════
-   PLINKO
-════════════════════════════════ */
 .plinko-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -2526,9 +2208,6 @@ body::after {
   transition: color 0.2s;
 }
 
-/* ════════════════════════════════
-   MINES
-════════════════════════════════ */
 .mines-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -2555,50 +2234,6 @@ body::after {
   color: var(--text-muted);
   margin-bottom: 4px;
   min-height: 18px;
-}
-
-.mines-mode-select {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.mines-mode-btn {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-}
-
-.mines-mode-btn:hover {
-  background: rgba(212,175,90,0.12);
-  border-color: var(--gold);
-  transform: translateY(-1px);
-}
-
-.mines-mode-title {
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--text-main, #fff);
-  margin-bottom: 2px;
-}
-
-.mines-mode-sub {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.mines-multi {
-  text-align: center;
-  font-size: 22px;
-  font-weight: 800;
-  font-family: 'DM Serif Display', serif;
-  color: var(--gold);
-  margin-bottom: 16px;
 }
 
 .mines-grid {
@@ -2628,19 +2263,9 @@ body::after {
   transform: scale(1.04);
 }
 
-.mines-cell:disabled {
-  cursor: default;
-}
-
-.mines-cell.mines-gem {
-  background: rgba(76,175,130,0.18);
-  border-color: var(--win-green);
-}
-
-.mines-cell.mines-bomb {
-  background: rgba(207,92,92,0.25);
-  border-color: var(--lose-red);
-}
+.mines-cell:disabled { cursor: default; }
+.mines-cell.mines-gem { background: rgba(76,175,130,0.18); border-color: var(--win-green); }
+.mines-cell.mines-bomb { background: rgba(207,92,92,0.25); border-color: var(--lose-red); }
 
 .mines-cashout-btn {
   display: block;
@@ -2657,20 +2282,6 @@ body::after {
   transition: opacity 0.2s, transform 0.1s;
 }
 
-.mines-cashout-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.mines-cashout-btn:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-
-/* ════════════════════════════════
-   SLOT MULTI-MODE
-════════════════════════════════ */
-
-/* Card utama */
 .slot-multi-card {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -2693,7 +2304,6 @@ body::after {
   background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
 }
 
-/* ── Mode Select ── */
 .slot-mode-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2715,13 +2325,6 @@ body::after {
   color: var(--text-primary);
 }
 
-.slot-mode-btn:hover,
-.slot-mode-btn:active {
-  background: rgba(212,175,90,0.09);
-  border-color: var(--border-glow);
-  transform: translateY(-2px);
-}
-
 .slot-mode-label {
   font-size: 1.25rem;
   font-weight: 800;
@@ -2730,39 +2333,6 @@ body::after {
   font-family: 'DM Serif Display', serif;
 }
 
-.slot-mode-desc {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.slot-mode-mult {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-top: 4px;
-}
-
-.slot-mode-mult span {
-  font-size: 0.66rem;
-  background: rgba(212,175,90,0.08);
-  border: 1px solid rgba(212,175,90,0.15);
-  border-radius: 20px;
-  padding: 2px 7px;
-  color: var(--gold-dim);
-}
-
-/* ── HUD ── */
-.slot-multi-hud {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  text-align: center;
-  min-height: 18px;
-}
-
-/* ── Grid ── */
 .slot-multi-grid {
   display: grid;
   gap: 6px;
@@ -2771,7 +2341,6 @@ body::after {
   margin: 0 auto;
 }
 
-/* ── Slot Window (override untuk multi-mode, ITEM_H = 72) ── */
 .slot-multi-grid .slot-window {
   height: 72px;
   border-radius: var(--radius-sm);
@@ -2782,25 +2351,11 @@ body::after {
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 
-/* Payline row highlight */
-.slot-multi-grid .slot-window.payline-row {
-  border-color: rgba(212,175,90,0.4);
-  box-shadow: 0 0 8px rgba(212,175,90,0.12);
-}
-
-/* Win glow */
 .slot-multi-grid .slot-window.win-glow {
   border-color: var(--gold-light) !important;
-  box-shadow: 0 0 18px rgba(240,208,128,0.45), inset 0 0 8px rgba(240,208,128,0.1) !important;
-  animation: slotWinPulse 0.55s ease-in-out infinite alternate;
+  box-shadow: 0 0 18px rgba(240,208,128,0.45) !important;
 }
 
-@keyframes slotWinPulse {
-  from { box-shadow: 0 0 10px rgba(240,208,128,0.35); }
-  to   { box-shadow: 0 0 24px rgba(240,208,128,0.7); }
-}
-
-/* Reel inner */
 .slot-multi-grid .slot-reel {
   position: absolute;
   width: 100%;
@@ -2819,66 +2374,6 @@ body::after {
   user-select: none;
 }
 
-/* Top & bottom fade per window */
-.slot-multi-grid .slot-window::before,
-.slot-multi-grid .slot-window::after {
-  content: '';
-  position: absolute;
-  left: 0; right: 0;
-  height: 16px;
-  z-index: 5;
-  pointer-events: none;
-}
-.slot-multi-grid .slot-window::before {
-  top: 0;
-  background: linear-gradient(to bottom, var(--bg-base), transparent);
-}
-.slot-multi-grid .slot-window::after {
-  bottom: 0;
-  background: linear-gradient(to top, var(--bg-base), transparent);
-}
-
-/* ── Payline label ── */
-.slot-payline-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  color: var(--gold-dim);
-  align-self: flex-end;
-  padding-right: 2px;
-  margin-top: -8px;
-}
-
-/* ── Multiplier chips ── */
-.slot-mult-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: center;
-  width: 100%;
-}
-
-.mult-chip {
-  background: rgba(212,175,90,0.07);
-  border: 1px solid rgba(212,175,90,0.18);
-  border-radius: 20px;
-  padding: 4px 11px;
-  font-size: 0.7rem;
-  color: var(--gold-dim);
-  font-weight: 600;
-}
-
-.mult-chip strong {
-  color: var(--gold);
-  font-weight: 800;
-}
-
-/* ══════════════════════════════════════════════════════════
-   THEME: background foto statis, tanpa animasi
-   Cara pakai: tambahkan class "theme-olympus" ke <body>, contoh:
-     <body class="theme-olympus">
-══════════════════════════════════════════════════════════ */
 body.theme-olympus {
   background-image:
     linear-gradient(180deg, rgba(8,9,12,0.55) 0%, rgba(8,9,12,0.72) 60%, rgba(8,9,12,0.88) 100%),
@@ -2889,16 +2384,12 @@ body.theme-olympus {
   background-attachment: fixed;
 }
 
-/* Sentuhan netral pada kartu utama, gak ada animasi */
 body.theme-olympus .glass-card,
 body.theme-olympus .slot-multi-card {
   border-color: rgba(170,180,210,0.14);
   box-shadow: 0 0 0 1px rgba(170,180,210,0.05), 0 18px 50px rgba(10,12,20,0.4);
 }
 
-/* ══════════════════════════════════════
-   WHEEL OF FORTUNE
-══════════════════════════════════════ */
 .wheel-card {
   background:
     radial-gradient(ellipse 90% 60% at 50% -10%, rgba(212,175,90,0.10) 0%, transparent 65%),
@@ -2911,13 +2402,6 @@ body.theme-olympus .slot-multi-card {
   overflow: hidden;
   box-shadow: 0 0 0 1px rgba(212,175,90,0.04), 0 20px 60px rgba(10,12,20,0.45);
 }
-.wheel-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.4), transparent);
-}
 
 .wheel-canvas-wrap {
   position: relative;
@@ -2925,28 +2409,6 @@ body.theme-olympus .slot-multi-card {
   max-width: 260px;
   margin: 4px auto 20px;
   aspect-ratio: 4 / 5;
-}
-
-/* Ambient glow di belakang barrel, hidup pas spinning */
-.wheel-canvas-wrap::before {
-  content: '';
-  position: absolute;
-  inset: -10% -16%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(212,175,90,0.20) 0%, transparent 70%);
-  opacity: 0.5;
-  filter: blur(8px);
-  transition: opacity 0.4s;
-  z-index: 0;
-  pointer-events: none;
-}
-.wheel-canvas-wrap.is-spinning::before {
-  opacity: 1;
-  animation: wheelGlowPulse 0.9s ease-in-out infinite alternate;
-}
-@keyframes wheelGlowPulse {
-  from { opacity: 0.55; filter: blur(8px); }
-  to   { opacity: 1;    filter: blur(14px); }
 }
 
 #wheelCanvas {
@@ -2958,8 +2420,6 @@ body.theme-olympus .slot-multi-card {
   filter: drop-shadow(0 12px 24px rgba(0,0,0,0.55));
 }
 
-/* Flapper / jarum penunjuk — diam di sisi KANAN, sejajar tengah barrel,
-   bentuk segitiga nunjuk ke kiri (ke arah barrel), seperti referensi foto */
 .wheel-pointer {
   position: absolute;
   top: 50%;
@@ -2973,49 +2433,7 @@ body.theme-olympus .slot-multi-card {
   filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
   z-index: 3;
 }
-.wheel-pointer::after {
-  content: '';
-  position: absolute;
-  top: -12px;
-  left: 4px;
-  width: 6px;
-  height: 4px;
-  background: rgba(255,255,255,0.7);
-  border-radius: 1px;
-}
 
-.wheel-result-hud {
-  text-align: center;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: var(--text-muted);
-  margin-bottom: 16px;
-  min-height: 18px;
-  transition: color 0.2s;
-}
-.wheel-result-hud.spinning { color: var(--gold); animation: rch-pulse 0.8s infinite alternate; }
-.wheel-result-hud.win  {
-  color: var(--win-green); font-size: 18px; font-family: 'DM Serif Display', serif; letter-spacing: 2px;
-  animation: wheelResultPop 0.4s ease-out;
-}
-.wheel-result-hud.lose {
-  color: var(--lose-red);  font-size: 18px; font-family: 'DM Serif Display', serif; letter-spacing: 2px;
-  animation: wheelResultPop 0.4s ease-out;
-}
-@keyframes wheelResultPop {
-  0%   { transform: scale(0.7); opacity: 0; }
-  60%  { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); }
-}
-
-@media (max-width: 420px) {
-  .wheel-canvas-wrap { max-width: 220px; }
-}
-
-/* ══════════════════════════════════════
-   HI-LO
-══════════════════════════════════════ */
 .hilo-card-wrap {
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
@@ -3026,15 +2444,6 @@ body.theme-olympus .slot-multi-card {
   overflow: hidden;
   transition: box-shadow 0.3s;
 }
-.hilo-card-wrap::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(212,175,90,0.3), transparent);
-}
-.hilo-card-wrap.hilo-result-win  { box-shadow: 0 0 0 1px rgba(90,200,130,0.35), 0 18px 50px rgba(40,160,100,0.15); }
-.hilo-card-wrap.hilo-result-lose { box-shadow: 0 0 0 1px rgba(207,92,92,0.35),  0 18px 50px rgba(180,60,60,0.15); }
 
 .hilo-multi {
   text-align: center;
@@ -3061,23 +2470,6 @@ body.theme-olympus .slot-multi-card {
 }
 
 .hilo-slot { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-
-.hilo-slot-label {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.hilo-vs {
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--gold-dim);
-  letter-spacing: 1px;
-}
-
 .hilo-card.bj-card { width: 64px; height: 92px; }
 
 .hilo-actions {
@@ -3096,31 +2488,10 @@ body.theme-olympus .slot-multi-card {
   font-family: 'Syne', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.5px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s, box-shadow 0.15s;
-}
-.hilo-btn:hover:not(:disabled)  { transform: translateY(-1px); }
-.hilo-btn:active:not(:disabled) { transform: scale(0.97); }
-.hilo-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
-
-.hilo-btn-hi:hover:not(:disabled) {
-  border-color: rgba(90,200,130,0.5);
-  color: var(--win-green);
-  box-shadow: 0 0 14px rgba(90,200,130,0.12);
-}
-.hilo-btn-lo:hover:not(:disabled) {
-  border-color: rgba(207,92,92,0.5);
-  color: var(--lose-red);
-  box-shadow: 0 0 14px rgba(207,92,92,0.12);
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s;
 }
 
-@media (max-width: 420px) {
-  .hilo-card.bj-card { width: 54px; height: 80px; }
-  .hilo-table { gap: 10px; }
-}
-
-/* ── SFX mute toggle button (header) ── */
 .sfx-toggle-btn {
   position: absolute;
   top: 8px;
@@ -3137,10 +2508,4 @@ body.theme-olympus .slot-multi-card {
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.12s, opacity 0.15s;
 }
-.sfx-toggle-btn:hover  { transform: translateY(-1px); border-color: var(--border-glow); }
-.sfx-toggle-btn:active { transform: scale(0.92); }
-.sfx-toggle-btn.muted  { opacity: 0.55; }
-
-@media (max-width: 420px) {
-  .sfx-toggle-btn { top: 4px; right: 0; width: 32px; height: 32px; font-size: 14px; }
-}
+.sfx-toggle-btn.muted { opacity: 0.55; }

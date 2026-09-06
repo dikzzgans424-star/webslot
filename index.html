@@ -21,6 +21,39 @@
     <p class="tagline">Premium Slot Experience</p>
   </div>
 
+  <!-- HALAMAN SPESIFIKASI PROFILE (Tersembunyi secara default) -->
+  <div id="profileView" style="display: none; margin-bottom: 20px;">
+    <div class="glass-card profile-spec-card show">
+      <div class="info-card-header">
+        <span class="info-card-title">👤 Spesifikasi Player</span>
+        <span class="info-card-id" id="profId">Loading...</span>
+      </div>
+      
+      <div class="info-grid">
+        <div class="info-cell">
+          <div class="info-cell-label">Tier / Status</div>
+          <div class="info-cell-value" id="profStatus">-</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Saldo Aktif</div>
+          <div class="info-cell-value gold" id="profBalance">-</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Total Bermain</div>
+          <div class="info-cell-value" id="profGames">-</div>
+        </div>
+        <div class="info-cell">
+          <div class="info-cell-label">Win Rate Game</div>
+          <div class="info-cell-value" id="profWr">-</div>
+        </div>
+      </div>
+
+      <button class="spin-game-btn" id="btnMasukGame">
+        🎰 Masuk ke Game Kasino
+      </button>
+    </div>
+  </div>
+
   <!-- Input / Back-to-dashboard (saling tukar tampil) -->
   <div id="tokenInputSlot">
     <div class="glass-card" id="tokenInputCard">
@@ -46,8 +79,6 @@
     </button>
   </div>
 
-  <!-- Info card, game area, result → diinject JS -->
-
   <!-- Status -->
   <div class="status-card">
     <div class="status-dot" id="statusDot"></div>
@@ -63,7 +94,7 @@
 
 </div>
 
-<!-- Sound engine (shared, no audio files needed) -->
+<!-- Sound engine -->
 <script src="sfx.js"></script>
 
 <!-- Game modules -->
