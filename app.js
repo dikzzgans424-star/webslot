@@ -831,64 +831,17 @@ window.addEventListener('beforeunload', (e) => {
   }
 });
 
-/* Routing Berdasarkan Query Parameter URL (?profile= / ?token=) */
-window.addEventListener('DOMContentLoaded', async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const tokenParam = urlParams.get('token');
-  const profileParam = urlParams.get('profile');
-
-  if (profileParam) {
-    const inputSlot = document.getElementById('tokenInputSlot');
-    if (inputSlot) inputSlot.style.display = 'none';
-    
-    const profileView = document.getElementById('profileView');
-    if (profileView) profileView.style.display = 'block';
-
-    try {
-      const file = await getTokenData(profileParam);
-      const userData = file.data.tokens[0];
-
-      if (userData && userData.token.toUpperCase() === profileParam.toUpperCase()) {
-        document.getElementById('profId').innerText = userData.token;
-        
-        const badge = userData.isPremium ? '<span class="badge-premium">★ Premium</span>' : '<span class="badge-regular">Regular</span>';
-        document.getElementById('profStatus').innerHTML = badge;
-        
-        document.getElementById('profBalance').innerText = userData.balance.toLocaleString() + ' bet';
-        
-        const history = userData.history || [];
-        const totalGames = history.length;
-        const totalWins = history.filter(h => h.result === 'win').length;
-        const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
-
-        document.getElementById('profGames').innerText = totalGames + 'x Play';
-        document.getElementById('profWr').innerText = winRate + '% Win Rate';
-
-        document.getElementById('btnMasukGame').onclick = () => {
-          window.location.href = '?token=' + userData.token;
-        };
-
-      } else {
-        document.getElementById('profId').innerText = 'TIDAK DITEMUKAN';
-        document.getElementById('profBalance').innerText = '0 bet';
-      }
-    } catch (err) {
-      document.getElementById('profId').innerText = 'GAGAL MEMUAT';
-    }
-
-  } else if (tokenParam || localStorage.getItem('miwa_token')) {
-    const savedToken = tokenParam || localStorage.getItem('miwa_token');
+// 2. Auto-login otomatis saat web dibuka
+window.addEventListener('DOMContentLoaded', () => {
+  const savedToken = localStorage.getItem('miwa_token');
+  if (savedToken) {
     const inp = document.getElementById('gachaId');
     if (inp) {
       inp.value = savedToken;
-      startSpin();
+      startSpin(); // Langsung otomatis login
     }
-    if (tokenParam) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  } 
+  }
 });
-
 
 // 3. Fungsi Keluar / Ganti Token
 function logoutToken() {
