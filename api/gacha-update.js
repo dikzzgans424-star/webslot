@@ -229,14 +229,28 @@ export default async function handler(req, res) {
     /* ══════════════════════════════════════════════════════════
        FIX KRITIS #2 — untuk hasil game asli (bukan deposit/withdraw),
        rollId WAJIB cocok dengan roll yang benar-benar diterbitkan
-       server di /api/gacha-roll, dan HANYA BOLEH DIPAKAI SEKALI.
-       findOneAndUpdate di bawah ini atomic: kalau rollId tidak ada,
-       sudah dipakai (used:true), sudah expired (Mongo TTL sudah
-       hapus), atau field-nya (token/game/bet/result) tidak cocok
-       persis dengan historyEntry yang dikirim — request DITOLAK.
-       Ini menutup dua celah sekaligus:
+       server di /api/gacha-roll (token+game+bet cocok), dan HANYA
+       BOLEH DIPAKAI SEKALI. findOneAndUpdate di bawah ini atomic:
+       kalau rollId tidak ada, sudah dipakai (used:true), sudah
+       expired (Mongo TTL sudah hapus), atau token/game/bet tidak
+       cocok dengan historyEntry yang dikirim — request DITOLAK.
+       Ini menutup dua celah:
        (a) klaim hasil game tanpa pernah benar-benar main / roll,
        (b) replay: kirim ulang request sukses yang sama berkali-kali.
+
+       CATATAN: field `result` SENGAJA TIDAK ikut di-match di sini.
+       Beberapa game (mines: ada risiko nyata setelah target aman,
+       plinko: winChance dihitung ulang di client by design, roulette:
+       slot hijau bisa menang walau kategori awalnya "lose", blackjack:
+       hasil murni dari kartu asli, belum pernah dikaitkan ke
+       gacha.result sama sekali) bisa menghasilkan win/lose akhir yang
+       beda dari kategori awal server — itu bukan kecurangan, itu
+       desain masing-masing game. Kalau field result ikut di-match,
+       skenario itu malah ditolak (ini yang kejadian & dilaporkan
+       sebagai "menang error"). Perlindungan terhadap manipulasi
+       tetap ada lewat MAX_GAME_MULTIPLIER cap (sanitizeHistoryEntry)
+       + rollId sekali-pakai di atas — client tetap wajib actually
+       roll dulu per game+bet, dan nggak bisa replay roll yang sama.
     ══════════════════════════════════════════════════════════ */
     if (safeHistoryEntry && ALLOWED_GAMES.has(safeHistoryEntry.game)) {
       if (!token || typeof token !== "string") {
@@ -249,19 +263,18 @@ export default async function handler(req, res) {
 
       const consumedRoll = await pendingCol.findOneAndUpdate(
         {
-          _id:    rollId,
-          token:  token.toUpperCase(),
-          game:   safeHistoryEntry.game,
-          bet:    safeHistoryEntry.bet,
-          result: safeHistoryEntry.result,
-          used:   false,
+          _id:   rollId,
+          token: token.toUpperCase(),
+          game:  safeHistoryEntry.game,
+          bet:   safeHistoryEntry.bet,
+          used:  false,
         },
-        { $set: { used: true, usedAt: new Date() } },
+        { $set: { used: true, usedAt: new Date(), reportedResult: safeHistoryEntry.result } },
         { returnDocument: "after" }
       );
 
       if (!consumedRoll) {
-        return res.status(409).json({ error: "Roll tidak ditemukan, sudah dipakai, kedaluwarsa, atau tidak cocok dengan hasil yang dikirim" });
+        return res.status(409).json({ error: "Roll tidak ditemukan, sudah dipakai, kedaluwarsa, atau tidak cocok dengan token/game/bet" });
       }
     }
 
