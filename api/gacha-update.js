@@ -5,6 +5,7 @@ const INTERNAL_KEY = process.env.INTERNAL_API_KEY; // secret key khusus bot WA
 const DB_NAME = "miwa";
 const COLLECTION = "gachadata";
 const DOC_ID = "main";
+const PENDING_COLLECTION = "pendingRolls";
 
 let cachedClient = null;
 
@@ -23,9 +24,6 @@ async function getClient() {
   return cachedClient;
 }
 
-/* FIX: fungsi ini dipanggil di beberapa tempat (mode buat token baru &
-   sync isPremium) tapi sebelumnya tidak pernah didefinisikan, jadi akan
-   throw ReferenceError tiap kali mode itu dipanggil. */
 function isInternalRequest(req) {
   if (!INTERNAL_KEY) return false;
   const incomingKey = String(req.headers["x-internal-key"] || "").trim();
@@ -34,19 +32,11 @@ function isInternalRequest(req) {
 
 const MAX_ABS_CHANGE = 1000000000000000;
 
-/* Daftar field yang diizinkan ada di historyEntry — tolak field asing */
 const ALLOWED_HISTORY_FIELDS = new Set(["game", "bet", "result", "change", "at"]);
-const ALLOWED_GAMES      = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines","wheel","hilo"]);
-const ALLOWED_BOT_GAMES  = new Set(["deposit","withdraw"]); // transaksi bot, bukan game web
-const ALLOWED_RESULTS = new Set(["win", "lose"]);
+const ALLOWED_GAMES     = new Set(["reelsgird","roulette","coinflip","horserace","airplane","blackjack","plinko","mines","wheel","hilo"]);
+const ALLOWED_BOT_GAMES = new Set(["deposit","withdraw"]); // transaksi bot, bukan game web
+const ALLOWED_RESULTS   = new Set(["win", "lose"]);
 
-/* MAX multiplier per game — dipakai server untuk validasi change positif.
-   Harus sinkron dengan MAX_GAME_MULTIPLIER di app.js.
-   FIX: reelsgird punya beberapa mode (3x3/4x4/5x5/6x3) dengan multTable
-   berbeda-beda (lihat games/reelsgird.js). Cap harus pakai multiplier
-   TERTINGGI dari semua mode (6x3, 6 sama = 5.5x), bukan 2 — karena 2
-   hanya cover match 3 di mode 3x3 dan bikin match 4/5/6 di mode lain
-   ditolak server walau hasilnya valid dari RNG. */
 const MAX_GAME_MULTIPLIER = {
   reelsgird: 5.5,
   roulette:  2,
@@ -60,10 +50,9 @@ const MAX_GAME_MULTIPLIER = {
   hilo:      10,
 };
 
-function sanitizeHistoryEntry(entry, token) {
+function sanitizeHistoryEntry(entry) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
 
-  /* Tolak field yang tidak dikenal */
   for (const key of Object.keys(entry)) {
     if (!ALLOWED_HISTORY_FIELDS.has(key)) return null;
   }
@@ -76,11 +65,6 @@ function sanitizeHistoryEntry(entry, token) {
   if (typeof change !== "number" || !Number.isFinite(change))       return null;
   if (typeof at !== "number" || !Number.isFinite(at))               return null;
 
-  /* Validasi konsistensi change vs result.
-     Transaksi bot (deposit/withdraw) punya aturan sendiri:
-     - deposit  → result 'win',  change == +bet (tambah penuh)
-     - withdraw → result 'lose', change == -bet (kurang penuh)
-     Game web validasi seperti sebelumnya. */
   if (ALLOWED_BOT_GAMES.has(game)) {
     if (game === "deposit"  && (result !== "win"  || change !== bet))   return null;
     if (game === "withdraw" && (result !== "lose" || change !== -bet))  return null;
@@ -92,10 +76,6 @@ function sanitizeHistoryEntry(entry, token) {
     }
     if (result === "lose") {
       if (game === "plinko") {
-        /* FIX: Plinko beda dari game lain — slot "kalah" selalu mendarat
-           di 0.5x (lihat games/plinko.js, _pickTargetSlot lose-branch +
-           MULTS[8] = 0.5), bukan 0x. Jadi rugi cuma SEBAGIAN bet, bukan
-           penuh. change valid di rentang (-bet, 0), bukan harus persis -bet. */
         if (change >= 0 || change < -bet) return null;
       } else {
         if (change !== -bet) return null;
@@ -103,7 +83,6 @@ function sanitizeHistoryEntry(entry, token) {
     }
   }
 
-  /* Timestamp tidak boleh jauh di masa depan (toleransi 60 detik) */
   if (at > Date.now() + 60_000) return null;
 
   return { game, bet, result, change, at };
@@ -122,13 +101,13 @@ export default async function handler(req, res) {
     const { token, owner, change, historyEntry, newToken, setIsPremium, reToken, rollId } = body;
 
     const client = await getClient();
-    const col = client.db(DB_NAME).collection(COLLECTION);
+    const col        = client.db(DB_NAME).collection(COLLECTION);
+    const pendingCol = client.db(DB_NAME).collection(PENDING_COLLECTION);
 
     /* ════════════════════════════════════════
        MODE A — BUAT TOKEN BARU (bot WA)
     ════════════════════════════════════════ */
     if (newToken) {
-      /* Hanya bot internal yang boleh buat token baru */
       if (!isInternalRequest(req)) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -153,7 +132,6 @@ export default async function handler(req, res) {
        MODE C — SYNC STATUS PREMIUM (bot WA)
     ════════════════════════════════════════ */
     if (typeof setIsPremium === "boolean") {
-      /* Hanya bot internal yang boleh update isPremium */
       if (!isInternalRequest(req)) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -178,8 +156,6 @@ export default async function handler(req, res) {
 
     /* ════════════════════════════════════════
        MODE D — RE-TOKEN (bot WA)
-       Ganti token string saja, saldo/history/isPremium tetap utuh.
-       Hanya bot internal yang boleh memanggil mode ini.
     ════════════════════════════════════════ */
     if (reToken === true) {
       if (!isInternalRequest(req)) {
@@ -189,7 +165,6 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Butuh owner untuk re-token" });
       }
 
-      /* Generate token string baru dengan format TKN + 12 karakter acak */
       const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
       let newTkn  = "TKN";
       for (let i = 0; i < 12; i++) {
@@ -218,8 +193,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Butuh token atau owner" });
     }
 
-    /* FIX: Tolak change = 0 (tidak ada yang berubah, tapi bisa dipakai
-       untuk spam push history kosong ke DB) */
     if (typeof change !== "number" || !Number.isFinite(change) || change === 0) {
       return res.status(400).json({ error: "change tidak valid" });
     }
@@ -227,33 +200,68 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Perubahan saldo di luar batas wajar" });
     }
 
-    /* FIX: Validasi rollId — pastikan hasil yang dikirim cocok dengan
-       roll yang sudah dikeluarkan server. Ini mencegah client mengirim
-       change positif palsu tanpa pernah menjalani game.
-       Catatan: karena serverless functions bisa multi-instance, pending
-       rolls idealnya disimpan di MongoDB dengan TTL index, bukan hanya
-       di memory seperti di /api/gacha-roll.js saat ini. Validasi di
-       bawah ini baru memastikan formatnya UUID valid — belum mencocokkan
-       isi roll yang sebenarnya. Untuk production penuh, tambahkan koleksi
-       MongoDB "pendingRolls" dan query rollId tersebut di sini. */
-    if (token && historyEntry) {
+    let safeHistoryEntry = null;
+    if (historyEntry) {
+      safeHistoryEntry = sanitizeHistoryEntry(historyEntry);
+      if (!safeHistoryEntry) {
+        return res.status(400).json({ error: "historyEntry tidak valid" });
+      }
+      if (safeHistoryEntry.change !== change) {
+        return res.status(400).json({ error: "Inkonsistensi: change tidak cocok dengan historyEntry" });
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       FIX KRITIS #1 — transaksi bot (deposit/withdraw) WAJIB
+       datang dari bot internal. Sebelumnya jalur ini SAMA SEKALI
+       tidak dicek X-Internal-Key, jadi siapapun yang punya token
+       kasino sendiri bisa langsung POST historyEntry {game:"deposit",
+       result:"win", change:+berapa aja} dan saldo nambah instan
+       tanpa lewat bot ataupun admin sama sekali. Ini kemungkinan
+       besar akar bug "saldo gacor" yang dilaporkan.
+    ══════════════════════════════════════════════════════════ */
+    if (safeHistoryEntry && ALLOWED_BOT_GAMES.has(safeHistoryEntry.game)) {
+      if (!isInternalRequest(req)) {
+        return res.status(401).json({ error: "Unauthorized: transaksi deposit/withdraw hanya boleh dari bot" });
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       FIX KRITIS #2 — untuk hasil game asli (bukan deposit/withdraw),
+       rollId WAJIB cocok dengan roll yang benar-benar diterbitkan
+       server di /api/gacha-roll, dan HANYA BOLEH DIPAKAI SEKALI.
+       findOneAndUpdate di bawah ini atomic: kalau rollId tidak ada,
+       sudah dipakai (used:true), sudah expired (Mongo TTL sudah
+       hapus), atau field-nya (token/game/bet/result) tidak cocok
+       persis dengan historyEntry yang dikirim — request DITOLAK.
+       Ini menutup dua celah sekaligus:
+       (a) klaim hasil game tanpa pernah benar-benar main / roll,
+       (b) replay: kirim ulang request sukses yang sama berkali-kali.
+    ══════════════════════════════════════════════════════════ */
+    if (safeHistoryEntry && ALLOWED_GAMES.has(safeHistoryEntry.game)) {
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ error: "token diperlukan untuk hasil game" });
+      }
       if (!rollId || typeof rollId !== "string" ||
           !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(rollId)) {
         return res.status(400).json({ error: "rollId tidak valid" });
       }
-    }
 
-    /* FIX: Validasi dan sanitasi historyEntry sebelum disimpan */
-    let safeHistoryEntry = null;
-    if (historyEntry) {
-      safeHistoryEntry = sanitizeHistoryEntry(historyEntry, token);
-      if (!safeHistoryEntry) {
-        return res.status(400).json({ error: "historyEntry tidak valid" });
-      }
+      const consumedRoll = await pendingCol.findOneAndUpdate(
+        {
+          _id:    rollId,
+          token:  token.toUpperCase(),
+          game:   safeHistoryEntry.game,
+          bet:    safeHistoryEntry.bet,
+          result: safeHistoryEntry.result,
+          used:   false,
+        },
+        { $set: { used: true, usedAt: new Date() } },
+        { returnDocument: "after" }
+      );
 
-      /* FIX: Validasi silang change di body vs change di historyEntry */
-      if (safeHistoryEntry.change !== change) {
-        return res.status(400).json({ error: "Inkonsistensi: change tidak cocok dengan historyEntry" });
+      if (!consumedRoll) {
+        return res.status(409).json({ error: "Roll tidak ditemukan, sudah dipakai, kedaluwarsa, atau tidak cocok dengan hasil yang dikirim" });
       }
     }
 
@@ -273,6 +281,11 @@ export default async function handler(req, res) {
     );
 
     if (!updatedDoc) {
+      /* NOTE: kalau update saldo gagal di titik ini padahal roll sudah
+         ke-consume di atas, roll itu "hangus" (nggak bisa dipakai lagi)
+         tapi saldo juga nggak berubah — aman, cuma bikin player harus
+         main ulang. Ini trade-off yang jauh lebih aman daripada rollback
+         manual yang malah bisa dieksploitasi race condition-nya. */
       return res.status(409).json({ error: "Update ditolak: token/owner tidak ditemukan atau saldo tidak cukup" });
     }
 
