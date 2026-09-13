@@ -96,10 +96,10 @@ const GAME_BUTTONS = {
   roulette:  '🎡 Roulette',
   coinflip:  '🪙 Coin Flip',
   horserace: '🏇 Horse Race',
-  plinko:    '🟣 Plinko',
-  wheel:     '🎯 Wheel of Fortune',
   blackjack: '🃏 Blackjack',
   hilo:      '🔮 Hi-Lo',
+  plinko:    '🟣 Plinko',
+  wheel:     '🎯 Wheel of Fortune',
   airplane:  '✈️ AirPlane',
   mines:     '💣 Mines',
 };
@@ -238,8 +238,8 @@ async function startSpin() {
       currentToken = null;
     }
 
-    if (!currentToken) { setStatus('❌ Token tidak ditemukan'); btn.disabled = false; return; }
-    if (currentToken.balance <= 0) { setStatus('❌ Saldo token habis'); btn.disabled = false; return; }
+    if (!currentToken) { setStatus('( ! ) INVALID: Token tidak ditemukan'); btn.disabled = false; return; }
+    if (currentToken.balance <= 0) { setStatus('( ! ) GAGAL: Saldo token habis'); btn.disabled = false; return; }
 
     /* ── Anti-refresh: simpan token ke localStorage ── */
     localStorage.setItem('miwa_token', currentToken.token);

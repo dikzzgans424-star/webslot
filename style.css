@@ -2252,18 +2252,18 @@ body::after {
   align-items: flex-start;
 }
 
-/* ── Kartu ── */
+/* ── Kartu (sekarang <img>, sumber gambar sama kayak Poker.js) ── */
 .bj-card {
   width: 58px;
   height: 84px;
   border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 6px;
-  position: relative;
+  display: block;
+  object-fit: cover;
   flex-shrink: 0;
   transform-origin: bottom center;
+  background: #f8f5ef;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
   animation: bj-deal 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -2272,65 +2272,10 @@ body::after {
   to   { opacity: 1; transform: translateY(0)     scale(1); }
 }
 
-.bj-card-black {
-  background: #f8f5ef;
-  border: 1px solid rgba(0,0,0,0.12);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
-  color: #111;
-}
-
-.bj-card-red {
-  background: #f8f5ef;
-  border: 1px solid rgba(0,0,0,0.12);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
-  color: #c0392b;
-}
-
 .bj-card-back {
   background: linear-gradient(135deg, #1a1a3a, #2a2a50);
   border: 1px solid rgba(212,175,90,0.3);
   box-shadow: 0 3px 10px rgba(0,0,0,0.5);
-  color: var(--gold-dim);
-  font-size: 38px;
-  align-items: center;
-  justify-content: center;
-}
-
-.bj-card-rank-top {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1;
-  align-self: flex-start;
-}
-
-.bj-card-rank-bot {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1;
-  align-self: flex-end;
-  transform: rotate(180deg);
-}
-
-.bj-card-suit {
-  font-size: 26px;
-  line-height: 1;
-  text-align: center;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.bj-card-face {
-  font-size: 22px;
-  line-height: 1;
-  text-align: center;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
 }
 
 /* ── Divider ── */
@@ -2473,7 +2418,6 @@ body::after {
 
 @media (max-width: 380px) {
   .bj-card { width: 50px; height: 74px; }
-  .bj-card-suit { font-size: 22px; }
 }
 
 /* ════════════════════════════════
