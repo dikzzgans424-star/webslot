@@ -30,7 +30,13 @@ const Blackjack = (() => {
   /* ── Kartu ── */
   const SUITS  = ['♠','♥','♦','♣'];
   const RANKS  = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-  const RED_SUITS = new Set(['♥','♦']);
+
+  /* ── Gambar kartu (sama sumbernya dengan Poker.js) ── */
+  const CARD_IMG_BASE = 'https://deckofcardsapi.com/static/img/';
+  const CARD_BACK_IMG = CARD_IMG_BASE + 'back.png';
+  const SUIT_TO_API = { '♠': 'S', '♥': 'H', '♦': 'D', '♣': 'C' };
+  const RANK_TO_API = { 'A':'A','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'0','J':'J','Q':'Q','K':'K' };
+  function _cardImg(card) { return CARD_IMG_BASE + RANK_TO_API[card.rank] + SUIT_TO_API[card.suit] + '.png'; }
 
   function _buildDeck() {
     const d = [];
@@ -65,23 +71,12 @@ const Blackjack = (() => {
   function _isBust(hand)       { return _handValue(hand) > 21; }
   function _isBlackjack(hand)  { return hand.length === 2 && _handValue(hand) === 21; }
 
-  /* ── Render kartu HTML ── */
+  /* ── Render kartu HTML (gambar, bukan emoji) ── */
   function _cardHTML(card, hidden = false) {
-    if (hidden) {
-      return `<div class="bj-card bj-card-back">
-        <div class="bj-card-inner">🂠</div>
-      </div>`;
+    if (hidden || !card) {
+      return `<img class="bj-card bj-card-back" src="${CARD_BACK_IMG}" alt="kartu tertutup">`;
     }
-    const isRed  = RED_SUITS.has(card.suit);
-    const FACE   = { 'J': '🤴', 'Q': '👸', 'K': '🤴', 'A': '★' };
-    const faceEl = FACE[card.rank]
-      ? `<div class="bj-card-face">${FACE[card.rank]}</div>`
-      : `<div class="bj-card-suit">${card.suit}</div>`;
-    return `<div class="bj-card ${isRed ? 'bj-card-red' : 'bj-card-black'} bj-card-deal">
-      <div class="bj-card-rank-top">${card.rank}</div>
-      ${faceEl}
-      <div class="bj-card-rank-bot">${card.rank}</div>
-    </div>`;
+    return `<img class="bj-card bj-card-deal" src="${_cardImg(card)}" alt="${card.rank}${card.suit}">`;
   }
 
   /* ── Update tampilan hand ── */

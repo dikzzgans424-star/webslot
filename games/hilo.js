@@ -35,9 +35,15 @@ const HiLo = (() => {
   const MULT_CAP    = 10;   // HARUS sama dengan MAX_GAME_MULTIPLIER.hilo di app.js & gacha-update.js
 
   const SUITS = ['♠','♥','♦','♣'];
-  const RED_SUITS = new Set(['♥','♦']);
   /* value 1-13 dipakai buat compare; A = paling rendah (beda dari blackjack) */
   const RANK_ORDER = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+  /* ── Gambar kartu (sama sumbernya dengan Poker.js & blackjack.js) ── */
+  const CARD_IMG_BASE = 'https://deckofcardsapi.com/static/img/';
+  const CARD_BACK_IMG = CARD_IMG_BASE + 'back.png';
+  const SUIT_TO_API = { '♠': 'S', '♥': 'H', '♦': 'D', '♣': 'C' };
+  const RANK_TO_API = { 'A':'A','2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'0','J':'J','Q':'Q','K':'K' };
+  function _cardImg(card) { return CARD_IMG_BASE + RANK_TO_API[card.rank] + SUIT_TO_API[card.suit] + '.png'; }
 
   /* ── State ── */
   let _gacha       = null;
@@ -72,21 +78,12 @@ const HiLo = (() => {
     return Math.min(MULT_CAP, (1 / _cumProb) * (1 - HOUSE_EDGE));
   }
 
-  /* ── Render kartu HTML (reuse style .bj-card dari blackjack.js) ── */
+  /* ── Render kartu HTML (gambar, reuse .bj-card dari blackjack.js) ── */
   function _cardHTML(card, hidden = false) {
     if (hidden || !card) {
-      return `<div class="bj-card bj-card-back"><div class="bj-card-inner">🂠</div></div>`;
+      return `<img class="bj-card bj-card-back hilo-card" src="${CARD_BACK_IMG}" alt="kartu tertutup">`;
     }
-    const isRed = RED_SUITS.has(card.suit);
-    const FACE  = { 'J': '🤴', 'Q': '👸', 'K': '🤴', 'A': '★' };
-    const faceEl = FACE[card.rank]
-      ? `<div class="bj-card-face">${FACE[card.rank]}</div>`
-      : `<div class="bj-card-suit">${card.suit}</div>`;
-    return `<div class="bj-card ${isRed ? 'bj-card-red' : 'bj-card-black'} bj-card-deal hilo-card">
-      <div class="bj-card-rank-top">${card.rank}</div>
-      ${faceEl}
-      <div class="bj-card-rank-bot">${card.rank}</div>
-    </div>`;
+    return `<img class="bj-card bj-card-deal hilo-card" src="${_cardImg(card)}" alt="${card.rank}${card.suit}">`;
   }
 
   /* ────────────────────────────────────
