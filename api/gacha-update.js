@@ -75,7 +75,7 @@ function sanitizeHistoryEntry(entry) {
       if (change > maxChange) return null;
     }
     if (result === "lose") {
-      if (game === "plinko") {
+      if (game === "plinko" || game === "airplane") {
         if (change >= 0 || change < -bet) return null;
       } else {
         if (change !== -bet) return null;
