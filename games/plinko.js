@@ -106,7 +106,12 @@ const Plinko = (() => {
     _canvas.height = BOARD_H;
     _canvas.style.width  = w + 'px';
     _canvas.style.height = (BOARD_H * scale) + 'px';
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    _canvas.width  = Math.round(BOARD_W * scale * dpr);
+    _canvas.height = Math.round(BOARD_H * scale * dpr);
     _ctx = _canvas.getContext('2d');
+    _ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+    _ctx.imageSmoothingQuality = 'high';
   }
 
   /* Bangun posisi pin segitiga (row 0 = 3 pin, row N = N+3 pin)
@@ -344,12 +349,13 @@ const Plinko = (() => {
         const t0 = segTimes[segIdx];
         const t1 = segTimes[Math.min(segIdx + 1, segCount)];
         const ratio = t1 > t0 ? Math.max(0, Math.min(1, (progress - t0) / (t1 - t0))) : 1;
-        const segT = _smoothStep(ratio);
+        const segX = 1 - Math.pow(1 - ratio, 1.8);   /* geser cepat lalu melambat */
+        const segY = Math.pow(ratio, 1.7);           /* jatuh makin cepat (gravitasi) */
 
         const a = waypoints[segIdx];
         const b = waypoints[segIdx + 1] || waypoints[segIdx];
-        const ballX = a.x + (b.x - a.x) * segT;
-        const ballY = a.y + (b.y - a.y) * segT - bounceOffset;
+        const ballX = a.x + (b.x - a.x) * segX;
+        const ballY = a.y + (b.y - a.y) * segY - bounceOffset;
 
         _drawBoard(ballX, ballY, squash);
 

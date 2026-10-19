@@ -92,15 +92,23 @@ const Roulette = (() => {
   /* ══════════════════════════════════════
      CANVAS SETUP
   ══════════════════════════════════════ */
+  let _LW = 0, _LH = 0;
   function initCanvas() {
     canvas = document.getElementById('rouletteCanvas');
     const wrap = canvas.parentElement;
     const size = Math.min(wrap.clientWidth, 320);
-    canvas.width  = size;
-    canvas.height = Math.round(size * (0.42 + PERSP * 0.6));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const h   = Math.round(size * (0.42 + PERSP * 0.6));
+    _LW = size; _LH = h;
+    canvas.width  = Math.round(size * dpr);
+    canvas.height = Math.round(h * dpr);
+    canvas.style.width  = size + 'px';
+    canvas.style.height = h + 'px';
     ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
     CX = size / 2;
-    CY = canvas.height / 2;
+    CY = h / 2;
     R  = size / 2 - 8;
   }
 
@@ -318,7 +326,7 @@ const Roulette = (() => {
      DRAW FRAME
   ══════════════════════════════════════ */
   function drawFrame(ballOrbitR, ballAng) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, _LW, _LH);
     drawWheel();
     drawBall(ballAng, ballOrbitR);
   }

@@ -256,7 +256,11 @@ h: 22 + Math.random() * 18,
   /* ════════════════════════════════
      RENDER LOOP
   ════════════════════════════════ */
-  function _loop() {
+  let _lastTs = 0, _k = 1, _dispMult = 1;
+  const _ease = f => 1 - Math.pow(1 - f, _k);          /* lerp yang tidak tergantung refresh rate */
+  function _loop(ts) {
+    _k = _lastTs ? Math.min(3, Math.max(0.25, (ts - _lastTs) / 16.667)) : 1;
+    _lastTs = ts;
     _draw();
     _rafId = requestAnimationFrame(_loop);
   }
@@ -265,18 +269,19 @@ h: 22 + Math.random() * 18,
     if (!_ctx) return;
     const ctx = _ctx, W = _cv._lw, H = _cv._lh;
 
-    _floatT  += 0.030;
-    _shineT  += 0.018;
-    _engineT += 0.22;
-    _cloudT  += 1;
+    _floatT  += 0.030 * _k;
+    _shineT  += 0.018 * _k;
+    _engineT += 0.22 * _k;
+    _cloudT  += _k;
 
-    if (_phase === 'flying') _flyT += 0.016;
-    if (_phase === 'crashed' || _phase === 'done') _exitT += 0.018;
-    if (_phase === 'crashed') _crashT += 0.025;
+    if (_phase === 'flying') _flyT += 0.016 * _k;
+    if (_phase === 'crashed' || _phase === 'done') _exitT += 0.018 * _k;
+    if (_phase === 'crashed') _crashT += 0.025 * _k;
 
     /* Lerp bg merah */
     const targetRed = _phase === 'crashed' ? 1 : 0;
-    _bgRed += (targetRed - _bgRed) * 0.04;
+    _bgRed += (targetRed - _bgRed) * _ease(0.04);
+    _dispMult += (_multiplier - _dispMult) * _ease(0.22);
 
     /* ── Background ── */
     _drawBg(ctx, W, H);
@@ -556,7 +561,7 @@ ctx.shadowBlur =
   18 + Math.min(20, _multiplier * 1.5);
 
 ctx.shadowColor = col.border;
-ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
+ctx.fillText(_dispMult.toFixed(2) + '×', cx, cy);
 
     ctx.restore();
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
@@ -625,8 +630,8 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
       const floatAngle = risePhase >= 1 ? Math.sin(_floatT * 1.2) * 0.05 : 0;
       _tilt = riseAngle + floatAngle;
 
-      _ax += (_tx - _ax) * 0.07;
-      _ay += (_ty - _ay) * 0.07;
+      _ax += (_tx - _ax) * _ease(0.07);
+      _ay += (_ty - _ay) * _ease(0.07);
       _trail.push({ x: _ax, y: _ay });
       if (_trail.length > TRAIL_MAX) _trail.shift();
 
@@ -670,8 +675,8 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
   _tilt = panicShake + diveSpin;
 
   /* Berat */
-  _ax += (_tx - _ax) * 0.025;
-  _ay += (_ty - _ay) * 0.025;
+  _ax += (_tx - _ax) * _ease(0.025);
+  _ay += (_ty - _ay) * _ease(0.025);
 
   /* Api makin brutal */
   if (Math.random() < 0.95) {
@@ -686,8 +691,8 @@ ctx.fillText(_multiplier.toFixed(2) + '×', cx, cy);
       _ty = _cv._lh * 0.78;
       _tilt = -ease * 0.18;   /* hidung sedikit turun */
 
-      _ax += (_tx - _ax) * 0.035;
-      _ay += (_ty - _ay) * 0.035;
+      _ax += (_tx - _ax) * _ease(0.035);
+      _ay += (_ty - _ay) * _ease(0.035);
     }
   }
 

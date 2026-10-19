@@ -290,9 +290,14 @@ const Wheel = (() => {
     const outer = canvas.parentElement;
     W = outer.clientWidth || 240;
     H = Math.round(W * 1.1);  // sedikit lebih persegi (3 pita kelihatan pas)
-    canvas.width  = W;
-    canvas.height = H;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
     ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
     _bandH = H / 3;   // tepat 3 pita penuh dalam viewport
     outer.style.height = H + 'px';
   }

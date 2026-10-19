@@ -54,15 +54,23 @@ const CoinFlip = (() => {
   /* ══════════════════════════════════════
      CANVAS
   ══════════════════════════════════════ */
-  let canvas, ctx, CX, CY, CR;
+  let canvas, ctx, CX, CY, CR, SIZE;
 
   function initCanvas() {
     canvas = document.getElementById('coinCanvas');
     const wrap = document.querySelector('.coin-canvas-wrap');
     const size = Math.min(wrap.clientWidth, 260);
-    canvas.width  = size;
-    canvas.height = size;
+    const dpr  = Math.min(window.devicePixelRatio || 1, 3);
+    SIZE = size;
+    canvas.width  = Math.round(size * dpr);
+    canvas.height = Math.round(size * dpr);
+    canvas.style.width  = size + 'px';
+    canvas.style.height = size + 'px';
     ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingQuality = 'high';
+    const sh = document.getElementById('coinShadow');
+    if (sh) { sh.style.willChange = 'transform, opacity'; sh.style.filter = 'blur(9px)'; }
     CX = size / 2;
     CY = size / 2;
     CR = size * 0.36;   // coin radius
@@ -86,7 +94,7 @@ const CoinFlip = (() => {
    *   flipProgress: 0..1 untuk efek tilt cahaya
    */
   function drawCoin(scaleX, yOffset, side, t) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, SIZE, SIZE);
 
     const absX = Math.abs(scaleX);
     const cx   = CX;
@@ -169,18 +177,20 @@ const CoinFlip = (() => {
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
 
-      if (isHeads) {
-        /* Crown */
-        ctx.font = `bold ${CR * 0.55}px serif`;
-        ctx.fillStyle = GOLD.dark;
-        ctx.globalAlpha = alpha * 0.7;
-        ctx.fillText('♔', 0, CR * 0.04);
-      } else {
-        /* Sword */
-        ctx.font = `bold ${CR * 0.5}px serif`;
-        ctx.fillStyle = faceDark;
-        ctx.globalAlpha = alpha * 0.7;
-        ctx.fillText('⚔', 0, CR * 0.04);
+      const u = CR * 0.36;
+      ctx.fillStyle   = isHeads ? GOLD.dark : faceDark;
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.beginPath();
+      if (isHeads) {            /* mahkota */
+        ctx.moveTo(-u, u * .65); ctx.lineTo(-u * 1.05, -u * .45); ctx.lineTo(-u * .5, u * .05);
+        ctx.lineTo(0, -u * .85); ctx.lineTo(u * .5, u * .05); ctx.lineTo(u * 1.05, -u * .45);
+        ctx.lineTo(u, u * .65); ctx.closePath(); ctx.fill();
+        ctx.fillRect(-u, u * .78, u * 2, u * .2);
+      } else {                  /* pedang */
+        ctx.moveTo(0, -u * 1.1); ctx.lineTo(u * .17, -u * .65); ctx.lineTo(u * .17, u * .35);
+        ctx.lineTo(-u * .17, u * .35); ctx.lineTo(-u * .17, -u * .65); ctx.closePath(); ctx.fill();
+        ctx.fillRect(-u * .55, u * .35, u * 1.1, u * .15);
+        ctx.fillRect(-u * .08, u * .5, u * .16, u * .45);
       }
       ctx.restore();
 
@@ -219,13 +229,10 @@ const CoinFlip = (() => {
   function updateShadow(yOffset, scaleX) {
     const shadow = document.getElementById('coinShadow');
     if (!shadow) return;
-    const lift  = Math.max(0, -yOffset);                    // makin tinggi = makin blur
-    const scale = Math.max(0.3, 1 - lift / (CR * 3));       // makin kecil saat tinggi
-    const blur  = 8 + lift * 0.12;
-    const alpha = Math.max(0.1, 0.45 - lift * 0.003);
-    shadow.style.transform = `scaleX(${scale * Math.abs(scaleX)}) scaleY(${scale * 0.25})`;
-    shadow.style.filter    = `blur(${blur}px)`;
-    shadow.style.opacity   = alpha;
+    const lift  = Math.max(0, -yOffset);
+    const k     = Math.max(0.3, 1 - lift / (CR * 3.2));
+    shadow.style.transform = `translateZ(0) scale(${(k * Math.max(0.35, Math.abs(scaleX))).toFixed(3)}, ${(k * 0.25).toFixed(3)})`;
+    shadow.style.opacity   = Math.max(0.12, 0.5 - lift * 0.0028).toFixed(3);
   }
 
   /* ══════════════════════════════════════
@@ -242,106 +249,38 @@ const CoinFlip = (() => {
   function easeOutCubic(t) { return 1 - Math.pow(1-t, 3); }
 
   async function runFlip(result) {
-    /*
-     * PHASES (ms):
-     *   0   → 200  : anticipation — koin sedikit turun (windup)
-     *   200 → 900  : launch — koin naik ke puncak, flip cepat
-     *   900 → 1800 : apex + descent — flip makin lambat, koin turun
-     *   1800→ 2400 : landing — bounce settle, reveal sisi final
-     */
-    const D = { windup: 200, launch: 700, descent: 900, landing: 600 };
-    const T = {
-      launch:  D.windup,
-      descent: D.windup + D.launch,
-      landing: D.windup + D.launch + D.descent,
-      end:     D.windup + D.launch + D.descent + D.landing,
-    };
-
-    /* Total flips: ganjil = balik sisi, genap = sisi sama
-       Kita kontrol result dengan jumlah flip */
-    const BASE_FLIPS = 6;   // putaran penuh
-    /* Kita track fase mana sisi "heads" menghadap atas:
-       di scaleX = +1 → sisi awal (heads), scaleX = -1 → sisi lain */
-    const startSide = 'heads';   // koin selalu mulai heads
-    const wantFlip  = (result !== startSide); // perlu ganjil jumlah half-flip?
-
-    /* Jumlah half-flip total = BASE_FLIPS*2 + (wantFlip ? 1 : 0) */
-    const halfFlips = BASE_FLIPS * 2 + (wantFlip ? 1 : 0);
-
-    /* Fungsi: dari progress 0→1, hitung scaleX koin */
-    function getScaleX(progress) {
-      /* progress 0→1 mewakili halfFlips kali bolak-balik -1..+1 */
-      const angle = progress * halfFlips * Math.PI;
-      return Math.cos(angle);
-    }
-
-    /* Fungsi: tentukan sisi yang menghadap — langsung dari scaleX */
-    function getSide(scaleX) {
-      return scaleX >= 0 ? 'heads' : 'tails';
-    }
-
-    const maxHeight = CR * 2.8;   // px naik dari posisi normal
-
-    const start = performance.now();
+    const startSide = 'heads';
+    const halfFlips = 12 + (result !== startSide ? 1 : 0);   /* ganjil = ganti sisi */
+    const WIND = 220, FLIGHT = 1750, SETTLE = 700;
+    const END  = WIND + FLIGHT + SETTLE;
+    const maxH = CR * 2.7, sink = CR * 0.10;
+    const easeOut = t => 1 - Math.pow(1 - t, 2.4);           /* putaran melambat halus */
 
     return new Promise(resolve => {
+      const t0 = performance.now();
       function frame(now) {
-        const e = now - start;
-        let scaleX, yOff, flipProgress, side;
+        const e = Math.max(0, now - t0);
+        let yOff = 0, angle = 0;
 
-        if (e < T.launch) {
-          /* ── Windup: turun sedikit ── */
-          const t = e / D.windup;
-          scaleX       = 1;
-          yOff         = Math.sin(t * Math.PI) * CR * 0.12;   // turun 12%
-          flipProgress = 0;
-          side         = 'heads';
-
-        } else if (e < T.descent) {
-          /* ── Launch → apex: naik + flip cepat ── */
-          const t    = (e - T.launch) / D.launch;
-          const tE   = easeInOut(t);
-
-          /* Naik parabola */
-          yOff         = -(Math.sin(tE * Math.PI * 0.5) * maxHeight);
-          flipProgress = tE * 0.6;   // selesai 60% flip saat di puncak
-          scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX);
-
-        } else if (e < T.landing) {
-          /* ── Descent: turun + flip melambat ── */
-          const t  = (e - T.descent) / D.descent;
-          const tE = easeOutCubic(t);
-
-          yOff         = -(maxHeight * (1 - tE * 1.0));
-          flipProgress = 0.6 + tE * 0.4;   // selesai sisa 40% flip
-          scaleX       = getScaleX(flipProgress);
-          side         = getSide(scaleX);
-
-        } else {
-          /* ── Landing bounce ── */
-          const t  = (e - T.landing) / D.landing;
-          const tE = easeOutBounce(Math.min(t, 1));
-
-          /* Dari posisi sedikit di bawah, bounce ke 0 */
-          yOff = CR * 0.08 * (1 - tE);
-
-          /* scaleX = posisi akhir flip (progress=1), konsisten dengan getScaleX */
-          const scaleXFinal = result === startSide ? 1 : -1;
-          scaleX       = scaleXFinal;
-          flipProgress = 1;
-          side         = getSide(scaleX);
-
-          if (e >= T.end) {
-            drawCoin(scaleXFinal, 0, side, 1);
-            updateShadow(0, 1);
-            resolve();
-            return;
-          }
+        if (e < WIND) {                                      /* windup: turun pelan, kecepatan akhir 0 */
+          yOff = Math.sin((e / WIND) * Math.PI * 0.5) * sink;
+        } else if (e < WIND + FLIGHT) {                      /* terbang: parabola + rotasi satu kurva */
+          const t = (e - WIND) / FLIGHT;
+          yOff  = sink * (1 - t) - 4 * maxH * t * (1 - t);
+          angle = easeOut(t) * halfFlips * Math.PI;
+        } else {                                             /* mendarat: pantulan teredam */
+          const t = Math.min(1, (e - WIND - FLIGHT) / SETTLE);
+          yOff  = -Math.abs(Math.sin(t * Math.PI * 2.5)) * CR * 0.16 * Math.pow(1 - t, 2);
+          angle = halfFlips * Math.PI;
         }
 
-        drawCoin(scaleX, yOff, side, flipProgress);
+        const scaleX = Math.cos(angle);
+        const side   = scaleX >= 0 ? 'heads' : 'tails';
+        const prog   = Math.min(1, angle / (halfFlips * Math.PI));
+        drawCoin(scaleX, yOff, side, prog);
         updateShadow(yOff, scaleX);
+
+        if (e >= END) { resolve(); return; }
         _raf = requestAnimationFrame(frame);
       }
       _raf = requestAnimationFrame(frame);

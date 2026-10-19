@@ -331,7 +331,10 @@ const HorseRace = (() => {
      MAIN LOOP
   ──────────────────────────────────── */
   let _lastGallopAt = 0;
-  function _loop() {
+  let _lastTs = 0, _k = 1;
+  function _loop(ts) {
+    _k = _lastTs ? Math.min(3, Math.max(0.25, (ts - _lastTs) / 16.667)) : 1;
+    _lastTs = ts;
     _draw();
     if (_phase === 'racing') {
       const now = performance.now();
@@ -401,16 +404,17 @@ const HorseRace = (() => {
         }
 
         /* Random micro-variance biar tidak kelihatan robotik */
-        h._nextVar--;
+        h._nextVar -= _k;
         if (h._nextVar <= 0) {
-          h._speedVar = (Math.random() - 0.5) * 0.25;
+          h._speedTarget = (Math.random() - 0.5) * 0.25;
           h._nextVar  = 18 + Math.floor(Math.random() * 22);
         }
 
+        h._speedVar = (h._speedVar || 0) + ((h._speedTarget || 0) - (h._speedVar || 0)) * (1 - Math.pow(0.94, _k));
         const spd = Math.max(0.55, h.speed + speedAdj + h._speedVar);
-        h.x       += spd;
-        h.legT    += spd * 0.18;
-        h.wobbleT += 0.12;
+        h.x       += spd * _k;
+        h.legT    += spd * 0.18 * _k;
+        h.wobbleT += 0.12 * _k;
 
         if (h.x > leaderX) leaderX = h.x;
 
@@ -436,13 +440,13 @@ const HorseRace = (() => {
 
       /* Camera follows leader */
       const camTarget = Math.max(0, leaderX - (W * 0.38));
-      _cameraX += (camTarget - _cameraX) * CAMERA_EASE;
+      _cameraX += (camTarget - _cameraX) * (1 - Math.pow(1 - CAMERA_EASE, _k));
     } else {
       /* Idle: horses bob in place */
-      _idleT += 0.04;
+      _idleT += 0.04 * _k;
       _horses.forEach((h, i) => {
-        h.legT    += 0.03;
-        h.wobbleT += 0.04;
+        h.legT    += 0.03 * _k;
+        h.wobbleT += 0.04 * _k;
       });
     }
 
@@ -713,9 +717,11 @@ const HorseRace = (() => {
 
     /* Finish ribbon if done */
     if (h.finished && h.finishOrder === 0) {
-      ctx.font      = '14px serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('🥇', 0, -38);
+      ctx.beginPath(); ctx.arc(0, -42, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#e6b94a'; ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.beginPath(); ctx.arc(-1.8, -43.8, 1.8, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fill();
     }
 
     ctx.restore();
