@@ -3259,3 +3259,24 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 .logo-wrap .ico svg { width: 34px; height: 34px; color: var(--gold-light); filter: drop-shadow(0 2px 8px rgba(212,175,90,.45)); }
 .token-game-btn .ico svg { width: 30px; height: 30px; color: var(--accent, var(--gold)); }
 .sfx-toggle-btn .ico svg { width: 20px; height: 20px; }
+
+/* Logo header: gambar custom */
+.logo-wrap { overflow: hidden; }
+.logo-wrap .logo-img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+
+/* ── Airplane: satu tombol (MULAI → AMBIL SEKARANG) ── */
+.ap-btn-row { grid-template-columns: 1fr; }
+.ap-main { width: 100%; height: 62px; }
+.ap-btn-take {
+  width: 100%; height: 62px; opacity: 1; white-space: nowrap;
+  background: linear-gradient(135deg, #6fe0a6, #2fae6c);
+  color: #06210f;
+  box-shadow: 0 4px 22px rgba(76,200,130,0.4);
+  animation: cashoutPulse 0.9s infinite alternate;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+.ap-btn-take:active:not(:disabled) { transform: scale(0.97); }
+.ap-cash-top { font-size: 12px; letter-spacing: 2px; }
+.ap-cash-amt { font-size: 13px; letter-spacing: 0.5px; font-weight: 800; text-transform: none; }
+.ap-btn-done  { width: 100%; height: 62px; opacity: 1; background: linear-gradient(135deg,#5dcf96,#3a9a6a); color: #06210f; }
+.ap-btn-crash { width: 100%; height: 62px; opacity: 0.85; background: linear-gradient(135deg,#8a2a2a,#5a1a1a); color: #ffc0c0; }
