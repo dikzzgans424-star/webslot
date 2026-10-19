@@ -42,6 +42,21 @@ const ALLOWED_GAMES = new Set([
 ]);
 const PREMIUM_ONLY = new Set(["airplane","mines"]);
 
+/* Batas main per hari (per token, per game) untuk game yang hasil detailnya
+   ditentukan di sisi klien (rawan exploit). Reset tiap 00:00 WIB. */
+const DAILY_LIMIT = { airplane: 10, hilo: 10, mines: 10, plinko: 10 };
+const DAILY_COLLECTION = "dailyRolls";
+let dailyIndexEnsured = false;
+async function ensureDailyIndex(col) {
+  if (dailyIndexEnsured) return;
+  await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+  dailyIndexEnsured = true;
+}
+/* Tanggal WIB (UTC+7) format YYYY-MM-DD */
+function wibDateKey(now = Date.now()) {
+  return new Date(now + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 /* Roll TTL — client harus pakai dalam 5 menit atau expired */
 const ROLL_TTL_MS = 5 * 60 * 1000;
 
@@ -91,6 +106,34 @@ export default async function handler(req, res) {
 
     if (PREMIUM_ONLY.has(game) && !tokenData.isPremium) {
       return res.status(403).json({ error: "Game ini khusus token Premium" });
+    }
+
+    /* Batas harian: increment atomik. Kalau dokumen hari ini sudah mencapai
+       limit, filter { count < limit } tidak cocok → upsert coba insert _id yang
+       sama → E11000 duplicate key → artinya limit tercapai. */
+    const dailyLimit = DAILY_LIMIT[game];
+    if (dailyLimit) {
+      const dailyCol = client.db(DB_NAME).collection(DAILY_COLLECTION);
+      await ensureDailyIndex(dailyCol);
+      const dateKey = wibDateKey();
+      const dailyId = `${tokenUpper}|${game}|${dateKey}`;
+      try {
+        await dailyCol.updateOne(
+          { _id: dailyId, count: { $lt: dailyLimit } },
+          {
+            $inc: { count: 1 },
+            $setOnInsert: { token: tokenUpper, game, date: dateKey, expiresAt: new Date(Date.now() + 48 * 3600 * 1000) },
+          },
+          { upsert: true }
+        );
+      } catch (e) {
+        if (e && e.code === 11000) {
+          return res.status(429).json({
+            error: `Batas harian ${game} tercapai (${dailyLimit}×/hari). Reset 00:00 WIB.`,
+          });
+        }
+        throw e;
+      }
     }
 
     /* Roll hasil di server pakai crypto.randomBytes — client tidak bisa
