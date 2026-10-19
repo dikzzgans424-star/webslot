@@ -1,5 +1,6 @@
 import { MongoClient } from "mongodb";
 import { randomUUID, randomBytes } from "crypto";
+import { getConfig, effectiveMax } from "./_shared.js";
 
 const uri = process.env.MONGODB_URI;
 const DB_NAME = "miwa";
@@ -100,18 +101,38 @@ export default async function handler(req, res) {
 
     const tokenData = doc.tokens[0];
 
+    if (tokenData.banned) {
+      return res.status(403).json({ error: "Token di-ban oleh Owner", banned: true });
+    }
+
+    const cfg = await getConfig();
+    if (cfg.maintenance.on) {
+      return res.status(503).json({ error: cfg.maintenance.msg || "Sedang maintenance, coba lagi nanti" });
+    }
+    const gcfg = cfg.games[game];
+    if (!gcfg.enabled) {
+      return res.status(403).json({ error: "Game ini sedang dinonaktifkan" });
+    }
+    if (bet < gcfg.minBet) {
+      return res.status(400).json({ error: `Min bet game ini: ${gcfg.minBet} bet` });
+    }
+    const maxBetAllowed = effectiveMax(gcfg, tokenData.isPremium);
+    if (bet > maxBetAllowed) {
+      return res.status(400).json({ error: `Max bet game ini: ${maxBetAllowed} bet` });
+    }
+
     if (tokenData.balance < bet) {
       return res.status(400).json({ error: "Saldo tidak cukup" });
     }
 
-    if (PREMIUM_ONLY.has(game) && !tokenData.isPremium) {
+    if (gcfg.premiumOnly && !tokenData.isPremium) {
       return res.status(403).json({ error: "Game ini khusus token Premium" });
     }
 
     /* Batas harian: increment atomik. Kalau dokumen hari ini sudah mencapai
        limit, filter { count < limit } tidak cocok → upsert coba insert _id yang
        sama → E11000 duplicate key → artinya limit tercapai. */
-    const dailyLimit = DAILY_LIMIT[game];
+    const dailyLimit = gcfg.dailyLimit;
     if (dailyLimit) {
       const dailyCol = client.db(DB_NAME).collection(DAILY_COLLECTION);
       await ensureDailyIndex(dailyCol);

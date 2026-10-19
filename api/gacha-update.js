@@ -253,6 +253,13 @@ export default async function handler(req, res) {
        roll dulu per game+bet, dan nggak bisa replay roll yang sama.
     ══════════════════════════════════════════════════════════ */
     if (safeHistoryEntry && ALLOWED_GAMES.has(safeHistoryEntry.game)) {
+      if (token && typeof token === "string") {
+        const b = await col.findOne(
+          { _id: DOC_ID, tokens: { $elemMatch: { token: token.toUpperCase(), banned: true } } },
+          { projection: { _id: 1 } }
+        );
+        if (b) return res.status(403).json({ error: "Token di-ban oleh Owner", banned: true });
+      }
       if (!token || typeof token !== "string") {
         return res.status(400).json({ error: "token diperlukan untuk hasil game" });
       }

@@ -48,6 +48,13 @@ export default async function handler(req, res) {
       }
 
       const tokenData = doc.tokens[0];
+      if (tokenData.banned) {
+        return res.status(403).json({
+          error: "Token di-ban oleh Owner",
+          banned: true,
+          reason: tokenData.banReason || "",
+        });
+      }
       const content   = Buffer.from(
         JSON.stringify({ tokens: [tokenData] }, null, 2)
       ).toString("base64");

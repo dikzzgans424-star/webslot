@@ -1,5 +1,4 @@
 import { MongoClient } from "mongodb";
-import { timingSafeEqual } from "crypto";
 import { computeStats } from "./_adminStats.js";
 
 const uri = process.env.MONGODB_URI;
@@ -9,7 +8,7 @@ const DOC_ID = "main";
 
 /* Password admin: set env ADMIN_PASS di Vercel (disarankan). Fallback di bawah
    hanya supaya langsung jalan — SEGERA pindahkan ke env var lalu hapus fallback. */
-const ADMIN_PASS = process.env.ADMIN_PASS || "dhikzxcloud240209";
+import { authOk } from "./_shared.js";
 
 let cachedClient = null;
 async function getClient() {
@@ -22,15 +21,9 @@ async function getClient() {
   return cachedClient;
 }
 
-function passOk(given) {
-  const a = Buffer.from(String(given || ""));
-  const b = Buffer.from(ADMIN_PASS);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  if (!passOk(req.headers["x-admin-pass"])) {
+  if (!authOk(req)) {
     await new Promise(r => setTimeout(r, 400)); // perlambat tebak-tebakan
     return res.status(401).json({ error: "Unauthorized" });
   }

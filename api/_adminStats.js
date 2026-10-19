@@ -1,6 +1,6 @@
 /* Hitung statistik house dari semua token. Dipisah supaya mudah dites.
    Catatan: change = perubahan saldo PEMAIN. Untung house = -change. */
-const NON_GAME = new Set(["deposit", "withdraw"]);
+const NON_GAME = new Set(["deposit", "withdraw", "admin_add", "admin_sub", "bonus"]);
 
 export function wibDay(ms) {
   return new Date(ms + 7 * 3600 * 1000).toISOString().slice(0, 10);
