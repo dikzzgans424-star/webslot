@@ -201,15 +201,74 @@ async function getTokenData(token) {
 async function applyGameResult(token, change, historyEntry, rollId) {
   /* FIX: sertakan rollId agar server bisa verifikasi hasil cocok dengan
      roll yang sudah dikeluarkan sebelumnya. */
-  const res = await fetch('/api/gacha-update', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ token, change, historyEntry, rollId })
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Gagal menyimpan data');
+  const ctrl  = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 10000);   /* jangan menggantung selamanya */
+  try {
+    const res = await fetch('/api/gacha-update', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ token, change, historyEntry, rollId }),
+      signal:  ctrl.signal
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const e   = new Error(err.error || 'Gagal menyimpan data');
+      e.status  = res.status;
+      throw e;
+    }
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/* ────────────────────────────────────────
+   FALLBACK SIMPAN — maksimal 3x percobaan
+   - Retry hanya untuk error sementara (jaringan putus, timeout, 5xx, 408, 429)
+   - Penolakan pasti dari server (400/401/409 di percobaan pertama) TIDAK di-retry
+   - rollId cuma bisa dipakai sekali: kalau percobaan sebelumnya sebenarnya
+     sudah masuk tapi responsnya hilang, retry akan ditolak 409. Karena itu
+     sebelum menyerah, cek dulu ke server apakah hasil ini sudah tersimpan.
+──────────────────────────────────────── */
+const SAVE_MAX_TRIES = 3;
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function _checkAlreadySaved(token, historyEntry, expectedBalance) {
+  try {
+    const f = await getTokenData(token);
+    const t = (f.data.tokens || [])[0];
+    if (!t) return { saved: false };
+    const inHistory = (t.history || []).some(h => h && h.at === historyEntry.at && h.game === historyEntry.game);
+    return { saved: inHistory || t.balance === expectedBalance, balance: t.balance };
+  } catch (_) {
+    return { saved: false };
+  }
+}
+
+async function saveResultWithRetry(token, change, historyEntry, rollId, expectedBalance) {
+  let lastErr = null, serverBalance = null;
+  for (let i = 1; i <= SAVE_MAX_TRIES; i++) {
+    if (i > 1) setStatus('💾 Menyimpan hasil... (percobaan ' + i + '/' + SAVE_MAX_TRIES + ')', true);
+    try {
+      await applyGameResult(token, change, historyEntry, rollId);
+      return { ok: true, tries: i };
+    } catch (err) {
+      lastErr = err;
+      console.error('Save error (percobaan ' + i + '/' + SAVE_MAX_TRIES + '):', err);
+      const st        = err.status;
+      const transient = !st || st >= 500 || st === 408 || st === 429;
+      const maybeDup  = st === 409 && i > 1;       /* percobaan sebelumnya mungkin sudah masuk */
+
+      if (!transient && !maybeDup) break;          /* ditolak server → jangan retry */
+
+      const chk = await _checkAlreadySaved(token, historyEntry, expectedBalance);
+      if (chk.balance != null) serverBalance = chk.balance;
+      if (chk.saved) return { ok: true, tries: i, verified: true };
+      if (maybeDup) break;
+
+      if (i < SAVE_MAX_TRIES) await _sleep(700 * i);   /* 0.7s, 1.4s */
+    }
+  }
+  return { ok: false, error: lastErr, balance: serverBalance };
 }
 
 /* ────────────────────────────────────────
@@ -723,7 +782,15 @@ async function onGameResult(isWin, moneyWon) {
          Anggap "save ok" tapi tidak ada yang ditulis. */
       saveOk = true;
     } else {
-      await applyGameResult(currentToken.token, balanceChange, histEntry, _currentRollId);
+      const r = await saveResultWithRetry(currentToken.token, balanceChange, histEntry, _currentRollId, newBalance);
+      if (!r.ok) {
+        /* Tetap gagal setelah semua percobaan: pakai saldo asli dari server kalau berhasil dibaca */
+        if (r.balance != null) {
+          currentToken.balance = r.balance;
+          _updateDashboardBalance(r.balance);
+        }
+        throw r.error || new Error('Gagal menyimpan');
+      }
       currentToken.balance = newBalance;
       if (!currentToken.history) currentToken.history = [];
       currentToken.history.push(histEntry);
@@ -733,6 +800,12 @@ async function onGameResult(isWin, moneyWon) {
   } catch (err) {
     console.error('Save error:', err);
   }
+
+  /* Simpan info untuk laporan kalau gagal — ID main ini yang dicek owner */
+  window._lastFailedSave = saveOk ? null : {
+    rollId: _currentRollId, token: currentToken?.token, game: _selectedGame,
+    bet: _currentBet, result: isWin ? 'win' : 'lose', change: balanceChange, at: histEntry.at,
+  };
 
   hideGame();
   showResultInline(isWin, moneyWon, balanceChange, saveOk ? newBalance : currentToken.balance, saveOk);
@@ -752,9 +825,19 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   const changeSign = balanceChange >= 0 ? '+' : '−';
   const changeAbs  = Math.abs(balanceChange);
 
+  const _f = window._lastFailedSave;
   const saveNote = saveOk
     ? `<div class="result-save-ok">✓ Hasil tersimpan</div>`
-    : `<div class="result-save-err">⚠ Gagal menyimpan (saldo tidak sinkron) — coba logout &amp; login ulang token untuk cek saldo terbaru. Hubungi admin kalau masih bermasalah (${currentToken?.token})</div>`;
+    : `<div class="result-save-err" id="saveNoteBox">
+        ⚠ Gagal menyimpan setelah ${SAVE_MAX_TRIES}x percobaan. Saldo di bawah diambil dari server.<br>
+        Kirim ID main ini ke admin untuk dicek (screenshot layar ini juga ya):
+        <div class="fail-id" onclick="copyFailReport()" style="margin:8px 0 4px;padding:10px;border:1px dashed currentColor;border-radius:10px;font-family:monospace;font-size:12px;word-break:break-all;cursor:pointer;">
+          ID Main: <strong>${_f?.rollId || 'tidak tersedia'}</strong><br>
+          <span style="opacity:.75">Ketuk untuk salin laporan</span>
+        </div>
+        <button type="button" id="retrySaveBtn" onclick="retrySaveNow(this)" style="width:100%;margin-top:8px;padding:11px 14px;border:0;border-radius:12px;font-weight:800;cursor:pointer;color:#0c0c0e;background:linear-gradient(135deg,#f0d080,#d4af5a);">Simpan ulang</button>
+        <div id="retryMsg" style="margin-top:6px;font-size:12px;opacity:.85"></div>
+      </div>`;
 
   area.innerHTML = `
     <div class="result-panel ${panelClass}">
@@ -852,4 +935,67 @@ function logoutToken() {
   }
   localStorage.removeItem('miwa_token');
   location.reload();
+}
+
+/* Salin laporan gagal-simpan (ID main + detail) untuk dikirim ke admin */
+function copyFailReport() {
+  const f = window._lastFailedSave;
+  if (!f) return;
+  const sign = f.change >= 0 ? '+' : '-';
+  const text = [
+    'LAPORAN GAGAL SIMPAN',
+    'ID Main: ' + f.rollId,
+    'Token: ' + f.token,
+    'Game: ' + (GAME_LABELS[f.game] || f.game),
+    'Bet: ' + f.bet + ' bet',
+    'Hasil: ' + f.result + ' (' + sign + Math.abs(f.change) + ' bet)',
+    'Waktu: ' + new Date(f.at).toLocaleString('id-ID'),
+  ].join('\n');
+  const done = () => setStatus('Laporan tersalin — kirim ke admin');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, () => prompt('Salin laporan ini:', text));
+  } else {
+    prompt('Salin laporan ini:', text);
+  }
+}
+
+
+/* Tombol "Simpan ulang" di panel gagal-simpan (tiap tekan = sampai 3x percobaan) */
+async function retrySaveNow(btn) {
+  const f = window._lastFailedSave;
+  if (!f || !currentToken) return;
+  const msg = document.getElementById('retryMsg');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+  if (msg) msg.textContent = '';
+
+  const histEntry = { game: f.game, bet: f.bet, result: f.result, change: f.change, at: f.at };
+  const expected  = currentToken.balance + f.change;
+  const r = await saveResultWithRetry(f.token, f.change, histEntry, f.rollId, expected);
+
+  if (r.ok) {
+    currentToken.balance = expected;
+    if (!currentToken.history) currentToken.history = [];
+    currentToken.history.push(histEntry);
+    _updateDashboardBalance(expected);
+
+    const box = document.getElementById('saveNoteBox');
+    if (box) { box.className = 'result-save-ok'; box.innerHTML = '✓ Hasil tersimpan'; }
+    const nb = document.querySelector('.result-balance-new');
+    if (nb) {
+      const st = nb.querySelector('strong'); if (st) st.textContent = expected + ' bet';
+      const sp = nb.querySelector('span');   if (sp) sp.textContent = '(' + formatRp(betToRp(expected)) + ')';
+    }
+    window._lastFailedSave = null;
+    setStatus('✓ Hasil tersimpan');
+    return;
+  }
+
+  if (r.balance != null) { currentToken.balance = r.balance; _updateDashboardBalance(r.balance); }
+  const expired = r.error && r.error.status === 409;
+  btn.textContent = 'Simpan ulang';
+  btn.disabled = expired;     /* 409 = roll kedaluwarsa/sudah dipakai, retry tidak akan menolong */
+  if (msg) msg.textContent = expired
+    ? 'ID ini sudah kedaluwarsa atau terpakai. Kirim ID Main ke admin.'
+    : 'Masih gagal. Cek koneksi lalu coba lagi, atau kirim ID Main ke admin.';
 }
