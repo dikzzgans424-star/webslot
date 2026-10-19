@@ -46,6 +46,9 @@ const Airplane = (() => {
   let _fireParticles = [];
   let _smokeParticles = [];
   let _exitT    = 0;   // untuk fase done/crashed exit ke kanan-bawah
+  let _speed    = 0.6; // kecepatan dunia (parallax), makin tinggi multiplier makin kencang
+  let _hills    = [];
+  let _streaks  = [];
 
   /* ── Canvas ── */
   let _cv = null, _ctx = null;
@@ -71,6 +74,7 @@ const Airplane = (() => {
     _floatT  = 0; _shineT = 0; _engineT = 0;
     _cloudT  = 0; _crashT = 0; _flyT = 0; _exitT = 0;
     _bgRed   = 0;
+    _speed   = 0.6;
     _tilt    = 0;
     _crashStartX = null;
     _crashStartY = null;
@@ -110,10 +114,7 @@ const Airplane = (() => {
           <canvas id="apCanvas"></canvas>
         </div>
         <div class="ap-btn-row" id="apBtnRow">
-          <button class="ap-btn ap-btn-cashout" id="apCashBtn" onclick="Airplane._cashout()" disabled>
-            💰 CASHOUT
-          </button>
-          <button class="ap-btn ap-btn-start" id="apStartBtn" onclick="Airplane._start()">
+          <button class="ap-btn ap-btn-start ap-main" id="apMainBtn" onclick="Airplane._main()">
             ▶ MULAI
           </button>
         </div>
@@ -162,14 +163,26 @@ const Airplane = (() => {
 
   function _genClouds() {
     const W = _cv._lw, H = _cv._lh;
-    _clouds = Array.from({ length: 5 }, (_, i) => ({
-      x  : W * (0.1 + i * 0.22),
-      y  : H * (0.1 + Math.random() * 0.35),
-      w: 80 + Math.random() * 60,
-h: 22 + Math.random() * 18,
-      spd: 0.18 + Math.random() * 0.25,
-      alpha: 0.25 + Math.random() * 0.25,
-    }));
+    /* 3 lapisan: jauh (kecil, lambat) → dekat (besar, cepat) */
+    _clouds = [];
+    const layers = [
+      { n: 5, sc: 0.55, f: 0.35, y0: 0.06, y1: 0.45, a: 0.55 },
+      { n: 4, sc: 0.85, f: 0.65, y0: 0.10, y1: 0.65, a: 0.80 },
+      { n: 3, sc: 1.30, f: 1.15, y0: 0.20, y1: 0.85, a: 0.95 },
+    ];
+    layers.forEach(L => {
+      for (let i = 0; i < L.n; i++) {
+        _clouds.push({
+          x: Math.random() * W * 1.3,
+          y: H * (L.y0 + Math.random() * (L.y1 - L.y0)),
+          w: (70 + Math.random() * 50) * L.sc,
+          h: (20 + Math.random() * 14) * L.sc,
+          f: L.f, alpha: L.a,
+        });
+      }
+    });
+    _hills = Array.from({ length: 7 }, (_, i) => ({ x: i * W * 0.22, w: W * (0.3 + Math.random() * 0.2), h: H * (0.06 + Math.random() * 0.07) }));
+    _streaks = Array.from({ length: 14 }, () => ({ x: Math.random() * W, y: Math.random() * H * 0.85, l: 20 + Math.random() * 50, f: 0.6 + Math.random() * 0.8 }));
   }
 
   function _genStars() {
@@ -186,17 +199,31 @@ h: 22 + Math.random() * 18,
   /* ════════════════════════════════
      CONTROLS
   ════════════════════════════════ */
+  function _betVal() { return _gacha.betAmount || (_gacha.money / 1000); }
+  function _prizeNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95); }
+
+  function _updateMainBtn() {
+    const mb = document.getElementById('apMainBtn');
+    if (!mb || _phase !== 'flying') return;
+    mb.innerHTML = `<span class="ap-cash-top">💰 AMBIL SEKARANG</span><span class="ap-cash-amt">Rp ${_prizeNow().toLocaleString('id-ID')} · ${_multiplier.toFixed(2)}×</span>`;
+  }
+
+  /* Satu tombol: MULAI → (berubah) AMBIL SEKARANG */
+  function _main() {
+    if (_phase === 'ready') _start();
+    else if (_phase === 'flying') _cashout();
+  }
+
   function _start() {
     if (_phase !== 'ready') return;
     _phase = 'flying';
     SFX.airplane.engineStart();
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu pesawat mulai terbang
-    const sb = document.getElementById('apStartBtn');
-    const cb = document.getElementById('apCashBtn');
-    if (sb) { sb.disabled = true; sb.classList.add('used'); sb.textContent = '🛫'; }
-    if (cb) { cb.disabled = false; cb.classList.add('active'); }
+    const mb = document.getElementById('apMainBtn');
+    if (mb) { mb.classList.remove('ap-btn-start'); mb.classList.add('ap-btn-take'); }
+    _updateMainBtn();
     const st = document.getElementById('apStatus');
-    if (st) st.textContent = 'Pesawat sedang terbang!';
+    if (st) st.textContent = 'Pesawat terus terbang!';
     _tickTimer = setInterval(_tick, TICK_MS);
   }
 
@@ -211,15 +238,12 @@ h: 22 + Math.random() * 18,
     _phase     = 'done';
     clearInterval(_tickTimer);
     SFX.airplane.cashout();
-    const cb = document.getElementById('apCashBtn');
-    const sb = document.getElementById('apStartBtn');
-    if (cb) { cb.disabled = true; cb.classList.remove('active'); cb.classList.add('success'); }
-    if (sb) { sb.disabled = true; }
-    const bet   = _gacha.betAmount || (_gacha.money / 1000);
-    const prize = Math.floor(bet * _multiplier * 1000 * 0.95);
+    const mb = document.getElementById('apMainBtn');
+    if (mb) { mb.disabled = true; mb.classList.remove('ap-btn-take'); mb.classList.add('ap-btn-done'); mb.textContent = '✓ DIAMBIL'; }
+    const prize = _prizeNow();
     const st = document.getElementById('apStatus');
     if (st) {
-      st.textContent = `✓ Cashout ${_multiplier.toFixed(2)}× — Rp ${prize.toLocaleString('id-ID')}!`;
+      st.textContent = `✓ Diambil ${_multiplier.toFixed(2)}× — Rp ${prize.toLocaleString('id-ID')}!`;
       st.style.color = '#4caf82';
     }
     setTimeout(() => _callback(true, prize), 3000);
@@ -232,8 +256,8 @@ h: 22 + Math.random() * 18,
     SFX.airplane.crash();
     _crashStartX = _ax;
     _crashStartY = _ay;
-    const cb = document.getElementById('apCashBtn');
-    if (cb) cb.disabled = true;
+    const mb = document.getElementById('apMainBtn');
+    if (mb) { mb.disabled = true; mb.classList.remove('ap-btn-take'); mb.classList.add('ap-btn-crash'); mb.textContent = '💥 JATUH'; }
     const st = document.getElementById('apStatus');
     if (st) {
       st.textContent = `Nabrak di ${_multiplier.toFixed(2)}×`;
@@ -250,6 +274,7 @@ h: 22 + Math.random() * 18,
     const inc   = _multiplier >= 2.0 ? SPEED_FAST : SPEED_BASE;
     _multiplier = parseFloat((_multiplier + inc).toFixed(3));
     SFX.airplane.ascend();
+    _updateMainBtn();
     if (_multiplier >= _crashAt) _doCrash();
   }
 
@@ -278,6 +303,12 @@ h: 22 + Math.random() * 18,
     if (_phase === 'crashed' || _phase === 'done') _exitT += 0.018 * _k;
     if (_phase === 'crashed') _crashT += 0.025 * _k;
 
+    /* Kecepatan dunia (parallax) */
+    const tgtSpeed = _phase === 'ready' ? 0.6
+                   : _phase === 'flying' ? Math.min(11, 3 + _multiplier * 0.55)
+                   : _phase === 'done'   ? 2.5 : 0.4;
+    _speed += (tgtSpeed - _speed) * _ease(0.04);
+
     /* Lerp bg merah */
     const targetRed = _phase === 'crashed' ? 1 : 0;
     _bgRed += (targetRed - _bgRed) * _ease(0.04);
@@ -289,8 +320,12 @@ h: 22 + Math.random() * 18,
     /* ── Stars (malam / crash) ── */
     if (_bgRed > 0.1) _drawStars(ctx, W, H);
 
+    /* ── Matahari & bukit ── */
+    _drawScenery(ctx, W, H);
+
     /* ── Clouds ── */
     if (_bgRed < 0.85) _drawClouds(ctx, W, H);
+    _drawSpeedLines(ctx, W, H);
 
     /* ── Multiplier display (tengah atas) ── */
 if (_phase === 'flying') {
@@ -417,39 +452,77 @@ else if (_phase === 'done' || _phase === 'crashed') {
      CLOUDS
   ───────────────────────────────── */
   function _drawClouds(ctx, W, H) {
-  for (const c of _clouds) {
+    for (const c of _clouds) {
+      c.x -= _speed * c.f * _k;
+      if (c.x < -c.w * 1.2) { c.x = W + c.w * 1.2; c.y = H * (0.06 + Math.random() * 0.75); }
 
-  c.x -= c.spd;
-
-  if (c.x < -c.w) {
-    c.x = W + c.w;
+      ctx.save();
+      ctx.globalAlpha = c.alpha * (1 - _bgRed * 0.6);
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = 'rgba(255,255,255,0.35)';
+      const g = ctx.createLinearGradient(0, c.y - c.h, 0, c.y + c.h);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(1, '#cfe2f7');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      const E = (x, y, rx, ry) => { ctx.moveTo(x + rx, y); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); };
+      E(c.x, c.y, c.w * 0.40, c.h);
+      E(c.x - c.w * 0.30, c.y + c.h * 0.25, c.w * 0.28, c.h * 0.75);
+      E(c.x + c.w * 0.30, c.y + c.h * 0.25, c.w * 0.30, c.h * 0.78);
+      E(c.x + c.w * 0.05, c.y - c.h * 0.55, c.w * 0.24, c.h * 0.7);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
-    const grad = ctx.createLinearGradient(
-      c.x,
-      c.y - c.h,
-      c.x,
-      c.y + c.h
-    );
-
-    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
-    grad.addColorStop(1, 'rgba(220,235,255,0.75)');
-
+  /* Garis kecepatan: makin cepat saat multiplier naik → kesan pesawat tidak pernah berhenti */
+  function _drawSpeedLines(ctx, W, H) {
+    if (_phase !== 'flying' && _phase !== 'done') return;
+    const a = Math.min(0.5, (_speed - 2) * 0.06);
+    if (a <= 0.02) return;
     ctx.save();
-
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = 'rgba(255,255,255,0.3)';
-    ctx.fillStyle = grad;
-
-    ctx.beginPath();
-    ctx.ellipse(c.x, c.y, c.w * 0.42, c.h * 1.1, 0, 0, Math.PI * 2);
-    ctx.ellipse(c.x - c.w * 0.28, c.y + 2, c.w * 0.30, c.h * 0.85, 0, 0, Math.PI * 2);
-    ctx.ellipse(c.x + c.w * 0.28, c.y + 2, c.w * 0.30, c.h * 0.85, 0, 0, Math.PI * 2);
-    ctx.fill();
-
+    ctx.strokeStyle = `rgba(255,255,255,${a})`;
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    for (const s of _streaks) {
+      s.x -= _speed * s.f * 2.2 * _k;
+      if (s.x < -s.l) { s.x = W + Math.random() * 40; s.y = Math.random() * H * 0.85; }
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x + s.l * Math.min(2, _speed * 0.25), s.y);
+      ctx.stroke();
+    }
     ctx.restore();
   }
-}
+
+  /* Matahari + bukit jauh (parallax) */
+  function _drawScenery(ctx, W, H) {
+    const vis = 1 - _bgRed;
+    /* matahari */
+    const sg = ctx.createRadialGradient(W * 0.86, H * 0.16, 2, W * 0.86, H * 0.16, H * 0.34);
+    sg.addColorStop(0, `rgba(255,248,200,${0.95 * vis})`);
+    sg.addColorStop(0.18, `rgba(255,230,140,${0.55 * vis})`);
+    sg.addColorStop(1, 'rgba(255,220,120,0)');
+    ctx.fillStyle = sg;
+    ctx.fillRect(0, 0, W, H);
+
+    /* bukit — hanya terlihat dekat landasan, memudar saat tinggi */
+    let ha = _phase === 'ready' ? 1 : (_phase === 'flying' ? Math.max(0, 1 - _flyT * 0.7) : 0.6);
+    if (ha <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = ha * 0.85;
+    for (const h of _hills) {
+      h.x -= _speed * 0.25 * _k;
+      if (h.x < -h.w) h.x += W * 1.6;
+      ctx.beginPath();
+      ctx.moveTo(h.x, H * 0.88);
+      ctx.quadraticCurveTo(h.x + h.w / 2, H * 0.88 - h.h * 2, h.x + h.w, H * 0.88);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(30,90,80,0.9)';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
 
   /* ─────────────────────────────────
      STARS (muncul saat crash)
@@ -537,7 +610,7 @@ if (_multiplier < 2) {
     
 
     /* Badge pill */
-    const bw = 110, bh = 44;
+    const bw = 128, bh = 50;
     const bx = cx - bw/2, by = cy - bh/2;
     ctx.beginPath();
     ctx.roundRect(bx, by, bw, bh, bh/2);
@@ -547,7 +620,7 @@ if (_multiplier < 2) {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-ctx.font = `900 28px Syne, sans-serif`;
+ctx.font = `900 32px Syne, sans-serif`;
 ctx.fillStyle = '#ffffff';
 
 ctx.textAlign = 'center';
@@ -616,11 +689,11 @@ ctx.fillText(_dispMult.toFixed(2) + '×', cx, cy);
       const startX = W * 0.08;
       const startY = H * 0.80;
       const midX   = W * 0.45;
-      const midY   = H * 0.42;
+      const midY   = H * (0.44 - Math.min(0.12, (_multiplier - 1) * 0.012));
 
       /* Float setelah sampai di tengah */
-      const floatY = risePhase >= 1 ? Math.sin(_flyT * 1.1) * 4   : 0;
-      const floatX = risePhase >= 1 ? Math.cos(_flyT * 0.7) * 1.5 : 0;
+      const floatY = risePhase >= 1 ? Math.sin(_flyT * 1.1) * 7   : 0;
+      const floatX = risePhase >= 1 ? Math.cos(_flyT * 0.7) * 5   : 0;
 
       _tx = startX + riseE * (midX - startX) + floatX;
       _ty = startY + riseE * (midY - startY) + floatY;
@@ -632,8 +705,10 @@ ctx.fillText(_dispMult.toFixed(2) + '×', cx, cy);
 
       _ax += (_tx - _ax) * _ease(0.07);
       _ay += (_ty - _ay) * _ease(0.07);
-      _trail.push({ x: _ax, y: _ay });
-      if (_trail.length > TRAIL_MAX) _trail.shift();
+      /* jejak asap ikut tergeser ke kiri → pesawat terlihat terus melaju */
+      for (const t of _trail) t.x -= _speed * 1.6 * _k;
+      _trail.push({ x: _ax - 30, y: _ay });
+      if (_trail.length > TRAIL_MAX || (_trail[0] && _trail[0].x < -10)) _trail.shift();
 
 } else if (_phase === 'crashed') {
 
@@ -836,16 +911,16 @@ function _drawCrashOverlay(ctx, W, H) {
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
 
-    ctx.font = `900 24px Syne, sans-serif`;
+    ctx.font = `900 20px Syne, sans-serif`;
 ctx.fillStyle = '#4cffaa';
 
 ctx.lineWidth = 3;
 ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-ctx.strokeText('CASHOUT BERHASIL ✓', W * 0.5, H * 0.22);
+ctx.strokeText('BERHASIL DIAMBIL ✓', W * 0.5, H * 0.22);
 
 ctx.shadowBlur = 8;
 ctx.shadowColor = 'rgba(60,220,140,0.8)';
-ctx.fillText('CASHOUT BERHASIL ✓', W * 0.5, H * 0.22);
+ctx.fillText('BERHASIL DIAMBIL ✓', W * 0.5, H * 0.22);
 
     ctx.font = `900 42px Syne, sans-serif`;
 ctx.fillStyle = '#f5d020';
@@ -1083,5 +1158,5 @@ _drawEngine(ctx, -10, -18);
   /* ════════════════════════════════
      EXPOSE
   ════════════════════════════════ */
-  return { init, _start, _cashout };
+  return { init, _start, _cashout, _main };
 })();

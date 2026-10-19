@@ -20,10 +20,9 @@
 
    Mekanisme predetermined result (sama pola dengan mines.js):
    - _gacha.result cuma nentuin KATEGORI:
-       'win'  -> dijamin benar sampai streak target (3-5), baru
-                 risiko asli (55% benar) berlaku
-       'lose' -> dijamin benar cuma 1-2 streak, lalu risiko asli
-                 turun jadi 20% benar
+       'win'  -> dijamin benar sampai streak target (1-2), lalu
+                 peluang asli x0.85
+       'lose' -> dijamin benar 0-1 streak, lalu peluang asli x0.45
    - Kartu AKTUAL yang ditarik tetap diambil acak dari sub-set deck
      yang sesuai (memenuhi arah / tidak memenuhi arah), jadi kartu
      yang muncul tetap kerasa random ke user.
@@ -31,7 +30,7 @@
 
 const HiLo = (() => {
 
-  const HOUSE_EDGE = 0.09;
+  const HOUSE_EDGE = 0.12;   // dinaikkan dari 0.09 (nerf)
   const MULT_CAP    = 10;   // HARUS sama dengan MAX_GAME_MULTIPLIER.hilo di app.js & gacha-update.js
 
   const SUITS = ['♠','♥','♦','♣'];
@@ -144,8 +143,11 @@ const HiLo = (() => {
     if (!hiBtn || !loBtn || !_current) return;
     const hasHigher = _deck.some(c => c.value > _current.value);
     const hasLower  = _deck.some(c => c.value < _current.value);
-    hiBtn.disabled = _busy || _done || !hasHigher;
-    loBtn.disabled = _busy || _done || !hasLower;
+    /* Kedua tombol SELALU bisa ditekan (kecuali lagi proses / game selesai).
+       Sebelumnya tombol yang "mustahil" dimatikan → pemain langsung tahu jawabannya
+       (mis. kartu A → LO mati, pasti HI). Sekarang tebakan mustahil = salah. */
+    hiBtn.disabled = _busy || _done;
+    loBtn.disabled = _busy || _done;
   }
 
   /* ────────────────────────────────────
@@ -155,7 +157,6 @@ const HiLo = (() => {
     if (_done || _busy || !_current) return;
     const hiBtn = document.getElementById('hiloHiBtn');
     const loBtn = document.getElementById('hiloLoBtn');
-    if ((direction === 'hi' && hiBtn?.disabled) || (direction === 'lo' && loBtn?.disabled)) return;
 
     _busy = true;
     if (hiBtn) hiBtn.disabled = true;
@@ -176,8 +177,11 @@ const HiLo = (() => {
 
     /* Tentukan apakah tebakan ini "dipaksa benar" berdasarkan predetermined path */
     let forcedCorrect;
+    /* NERF: jaminan benar cuma di awal (WIN 1-2 kali, LOSE 0-1 kali), lalu
+       peluang benar = peluang ASLI kartu dikali faktor (WIN 0.85 / LOSE 0.45),
+       jadi tebakan sulit tetap sulit & tidak ada lagi "pasti menang". */
     if (_streak < _safeTarget) forcedCorrect = true;
-    else forcedCorrect = Math.random() < (_isWinPath ? 0.55 : 0.20);
+    else forcedCorrect = Math.random() < trueProb * (_isWinPath ? 0.85 : 0.45);
 
     /* Pilih pool: benar, salah, atau acak dari kartu seri jika pool lain kosong */
     let pool;
@@ -328,8 +332,8 @@ const HiLo = (() => {
 
     /* Ambang streak benar terjamin */
     _safeTarget = _isWinPath
-      ? 3 + Math.floor(Math.random() * 3)  // 3-5 saat WIN
-      : 1 + Math.floor(Math.random() * 2); // 1-2 saat LOSE
+      ? 1 + Math.floor(Math.random() * 2)  // 1-2 saat WIN
+      : Math.floor(Math.random() * 2);     // 0-1 saat LOSE
 
     _render();
   }

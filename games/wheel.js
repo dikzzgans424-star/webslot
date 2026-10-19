@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════
-   GAME: WHEEL OF FORTUNE — Arcade Barrel (Big Bass Style)
+   GAME: WHEEL OF FORTUNE — Roda tegak + lampu + jarum emas
    Expose: Wheel.init(gacha, onResult)
 
    Visual referensi: mesin arcade Big Bass Wheel
@@ -54,7 +54,21 @@ const Wheel = (() => {
   /* ── Canvas ── */
   let canvas, ctx, W, H;
 
-  /* ── HTML layout mirip mesin arcade ── */
+  /* ── Warna segmen (roda) ── */
+  const SEG_STYLE = {
+    bust:    { a: '#7a1a0c', b: '#3d0c05', text: '#ff9a7a', stroke: '#2a0803' },
+    win1:    { a: '#ffd24a', b: '#e9a315', text: '#7a4a00', stroke: '#b97a0a' },
+    win3:    { a: '#ffae2b', b: '#e06a12', text: '#6a2a00', stroke: '#a9460a' },
+    jackpot: { a: '#ff5a2a', b: '#b8200a', text: '#ffe9c0', stroke: '#ffffff' },
+  };
+  function styleOf(seg) {
+    if (seg.mult === 0) return SEG_STYLE.bust;
+    if (seg.mult >= 5)  return SEG_STYLE.jackpot;
+    if (seg.mult >= 3)  return SEG_STYLE.win3;
+    return SEG_STYLE.win1;
+  }
+
+  /* ── HTML: roda tegak (fortune wheel) dengan lampu & jarum emas ── */
   function render() {
     const area = document.createElement('div');
     area.id        = 'gameArea';
@@ -62,49 +76,10 @@ const Wheel = (() => {
     area.innerHTML = `
       <div class="wheel-card" id="wheelCard">
         <div class="slot-section-label">🎯 Wheel of Fortune</div>
-
-        <!-- Mesin arcade: wrap luar dengan frame + jarum -->
-        <div class="wb-machine-wrap">
-
-          <!-- Top jackpot banner (hijau gelap, mirip foto) -->
-          <div class="wb-top-banner">
-            <span class="wb-top-label">JACKPOT</span>
-            <span class="wb-top-value">5×</span>
-          </div>
-
-          <!-- Row: panel kiri + barrel + jarum kanan -->
-          <div class="wb-barrel-row">
-
-            <!-- Panel kiri: dekorasi chrome/baut -->
-            <div class="wb-side-panel wb-side-left">
-              <div class="wb-bolt"></div>
-              <div class="wb-side-stripe"></div>
-              <div class="wb-bolt"></div>
-            </div>
-
-            <!-- Barrel wrapper (overflow hidden, clip capsule via CSS) -->
-            <div class="wb-barrel-outer">
-              <canvas id="wheelCanvas"></canvas>
-            </div>
-
-            <!-- Panel kanan + jarum -->
-            <div class="wb-side-panel wb-side-right">
-              <div class="wb-bolt"></div>
-              <div class="wb-pointer-wrap">
-                <div class="wb-pointer"></div>
-              </div>
-              <div class="wb-bolt"></div>
-            </div>
-
-          </div>
-
-          <!-- Bottom chrome strip -->
-          <div class="wb-bottom-strip">
-            <span class="wb-bottom-text">★ MIWA FORTUNE ★</span>
-          </div>
-
+        <div class="wf-stage wb-machine-wrap" id="wfStage">
+          <div class="wf-title">FORTUNE<small>wheel</small></div>
+          <div class="wf-canvas-box"><canvas id="wheelCanvas"></canvas></div>
         </div>
-
         <div class="wheel-result-hud" id="wheelResultHud">Tekan SPIN untuk mulai</div>
         <button class="spin-game-btn" id="wheelSpinBtn" onclick="Wheel.spin()">
           🎯 &nbsp;SPIN
@@ -118,166 +93,60 @@ const Wheel = (() => {
     else if (existGame) existGame.replaceWith(area);
     else document.querySelector('.glass-card').insertAdjacentElement('afterend', area);
 
-    /* Inject CSS inline biar tidak perlu edit style.css */
     _injectCSS();
   }
 
   function _injectCSS() {
-    if (document.getElementById('wb-injected-css')) return;
+    if (document.getElementById('wf-injected-css')) return;
     const style = document.createElement('style');
-    style.id = 'wb-injected-css';
+    style.id = 'wf-injected-css';
     style.textContent = `
-      /* ── Machine outer wrap ── */
-      .wb-machine-wrap {
+      .wf-stage {
+        position: relative;
         width: 100%;
         max-width: 340px;
-        margin: 0 auto 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-        filter: drop-shadow(0 16px 40px rgba(0,0,0,0.7));
-      }
-
-      /* ── Top banner (hijau tua / dark green seperti foto) ── */
-      .wb-top-banner {
-        width: 88%;
-        background: linear-gradient(180deg, #1a4a1a 0%, #0d2e0d 100%);
-        border: 2px solid #2e8a2e;
-        border-bottom: none;
-        border-radius: 12px 12px 0 0;
-        padding: 6px 12px 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        position: relative;
-        z-index: 2;
-      }
-      .wb-top-label {
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 3px;
-        color: #4ad44a;
-        text-shadow: 0 0 8px rgba(74,212,74,0.7);
-      }
-      .wb-top-value {
-        font-size: 22px;
-        font-weight: 900;
-        color: #f0d080;
-        text-shadow: 0 0 12px rgba(240,208,80,0.9), 0 2px 0 rgba(0,0,0,0.5);
-        font-family: 'DM Serif Display', serif;
-      }
-
-      /* ── Row: kiri + barrel + kanan ── */
-      .wb-barrel-row {
-        display: flex;
-        align-items: stretch;
-        width: 100%;
-        position: relative;
-        z-index: 1;
-      }
-
-      /* ── Side panels (chrome, kiri & kanan) ── */
-      .wb-side-panel {
-        width: 28px;
-        background: linear-gradient(180deg, #b0bcc8 0%, #6a7a88 40%, #8a9aaa 70%, #b0bcc8 100%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: space-between;
-        padding: 8px 0;
-        border: 1px solid #404a54;
-        position: relative;
-        flex-shrink: 0;
-      }
-      .wb-side-left  { border-right: none; border-radius: 0; }
-      .wb-side-right { border-left:  none; border-radius: 0; }
-
-      .wb-bolt {
-        width: 10px; height: 10px;
-        background: radial-gradient(circle at 35% 35%, #e8eef4, #888fa0);
-        border-radius: 50%;
-        border: 1px solid #505860;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.4);
-      }
-      .wb-side-stripe {
-        flex: 1;
-        width: 4px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.3), rgba(255,255,255,0.05));
-        border-radius: 2px;
-        margin: 4px 0;
-      }
-
-      /* ── Pointer wrap (kanan) ── */
-      .wb-pointer-wrap {
-        position: relative;
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex: 1;
-      }
-      /* Segitiga kuning nunjuk ke kiri (ke barrel) */
-      .wb-pointer {
-        width: 0;
-        height: 0;
-        border-top:    13px solid transparent;
-        border-bottom: 13px solid transparent;
-        border-right:  20px solid #f0d080;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7))
-                drop-shadow(0 0 6px rgba(240,208,80,0.5));
-        position: relative;
-        left: -4px;
-      }
-
-      /* ── Barrel outer (clip dengan border-radius tinggi) ── */
-      .wb-barrel-outer {
-        flex: 1;
+        margin: 4px auto 18px;
+        padding: 14px 8px 8px;
+        border-radius: 22px;
         overflow: hidden;
-        border-left:  2px solid #404a54;
-        border-right: 2px solid #404a54;
-        position: relative;
-        background: #050505;
+        background:
+          radial-gradient(ellipse 70% 55% at 50% 100%, rgba(40,150,210,0.55) 0%, transparent 70%),
+          linear-gradient(180deg, #06324a 0%, #0a5a7c 60%, #0b4560 100%);
+        border: 1px solid rgba(120,200,240,0.25);
+        box-shadow: 0 14px 40px rgba(0,0,0,0.55), inset 0 0 40px rgba(0,0,0,0.35);
       }
-
-      #wheelCanvas {
-        display: block;
-        width: 100%;
-        height: 100%;
+      /* sorot cahaya diagonal seperti referensi */
+      .wf-stage::before {
+        content: '';
+        position: absolute; inset: 0;
+        background:
+          linear-gradient(115deg, transparent 38%, rgba(255,255,255,0.05) 46%, transparent 54%),
+          linear-gradient(65deg,  transparent 38%, rgba(255,255,255,0.05) 46%, transparent 54%);
+        pointer-events: none;
       }
-
-      /* ── Bottom strip chrome ── */
-      .wb-bottom-strip {
-        width: 88%;
-        background: linear-gradient(180deg, #0d2e0d 0%, #1a4a1a 100%);
-        border: 2px solid #2e8a2e;
-        border-top: none;
-        border-radius: 0 0 12px 12px;
-        padding: 5px 12px;
+      .wf-title {
         text-align: center;
-        position: relative;
-        z-index: 2;
+        font-family: 'Syne', sans-serif;
+        font-weight: 900;
+        font-size: 30px;
+        letter-spacing: 2px;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 0 3px 10px rgba(0,0,0,0.5);
+        margin-bottom: 4px;
       }
-      .wb-bottom-text {
-        font-size: 8px;
-        font-weight: 800;
-        letter-spacing: 3px;
-        color: #4ad44a;
-        text-shadow: 0 0 6px rgba(74,212,74,0.5);
+      .wf-title small {
+        display: block;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #3fb6ee;
+        text-shadow: none;
+        margin-top: 2px;
       }
-
-      /* Glow aura saat spinning */
-      .wb-machine-wrap.is-spinning .wb-barrel-outer {
-        box-shadow: 0 0 30px rgba(240,208,80,0.3) inset;
-      }
-      .wb-machine-wrap.is-spinning .wb-top-value {
-        animation: wbJackpotPulse 0.7s ease-in-out infinite alternate;
-      }
-      @keyframes wbJackpotPulse {
-        from { text-shadow: 0 0 12px rgba(240,208,80,0.9); }
-        to   { text-shadow: 0 0 28px rgba(240,208,80,1), 0 0 50px rgba(240,160,0,0.7); }
-      }
+      .wf-canvas-box { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+      .wf-canvas-box #wheelCanvas { width: 100%; height: 100%; display: block; filter: none; }
+      .wf-stage.is-spinning { box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 36px rgba(255,200,80,0.35), inset 0 0 40px rgba(0,0,0,0.35); }
     `;
     document.head.appendChild(style);
   }
@@ -285,11 +154,15 @@ const Wheel = (() => {
   /* ══════════════════════════════════════
      CANVAS SETUP
   ══════════════════════════════════════ */
+  let _rot = 0;          // sudut roda (rad)
+  let _pointerKick = 0;  // ayunan jarum saat melewati pasak
+  let _lastPeg = null;
+
   function initCanvas() {
     canvas = document.getElementById('wheelCanvas');
-    const outer = canvas.parentElement;
-    W = outer.clientWidth || 240;
-    H = Math.round(W * 1.1);  // sedikit lebih persegi (3 pita kelihatan pas)
+    const box = canvas.parentElement;
+    W = Math.round(box.clientWidth || 300);
+    H = W;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width  = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
@@ -298,191 +171,241 @@ const Wheel = (() => {
     ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingQuality = 'high';
-    _bandH = H / 3;   // tepat 3 pita penuh dalam viewport
-    outer.style.height = H + 'px';
   }
 
   /* ══════════════════════════════════════
-     DRAW BARREL
-     - 3 pita kelihatan: atas (samar), tengah (full bright), bawah (samar)
-     - Setiap pita: warna solid + garis kayu vertikal
-     - Teks: angka besar di tengah pita, sub kecil di bawahnya
-     - Shading silinder: kiri & kanan gelap, tengah terang
-     - Garis hitam tebal antar pita
+     DRAW WHEEL
   ══════════════════════════════════════ */
-  function drawBarrel(scrollY, tickFlash) {
+  function drawWheel(rot, now) {
+    const TAU = Math.PI * 2;
+    const SEG = TAU / N;
     ctx.clearRect(0, 0, W, H);
 
-    const bandH = _bandH;
-    const midY  = H / 2;  // y tengah viewport = pointer
+    const CX = W / 2, CY = H / 2 + 6;
+    const R  = W / 2 - 12;          // radius luar bingkai
+    const rFace = R * 0.86;         // radius muka roda
 
-    /* ── Gambar tiap pita yang terlihat ── */
-    const minVI = Math.floor((-bandH + scrollY) / bandH) - 1;
-    const maxVI = Math.ceil((H + bandH + scrollY) / bandH) + 1;
+    /* Bayangan */
+    ctx.beginPath();
+    ctx.arc(CX, CY + 6, R, 0, TAU);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fill();
 
-    for (let vi = minVI; vi <= maxVI; vi++) {
-      const y   = vi * bandH - scrollY;
-      if (y > H + bandH || y < -bandH * 2) continue;
-      const idx = ((vi % N) + N) % N;
-      const seg = SEGMENTS[idx];
+    /* Bingkai gelap */
+    const frame = ctx.createRadialGradient(CX, CY, R * 0.8, CX, CY, R);
+    frame.addColorStop(0, '#1b2733');
+    frame.addColorStop(0.7, '#0b121a');
+    frame.addColorStop(1, '#2b3a49');
+    ctx.beginPath();
+    ctx.arc(CX, CY, R, 0, TAU);
+    ctx.fillStyle = frame;
+    ctx.fill();
+    ctx.strokeStyle = '#4a5d70';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
-      /* Seberapa jauh dari tengah (untuk dim atas/bawah) */
-      const centerDist = Math.abs((y + bandH / 2) - midY) / bandH;
-      const dimFactor  = Math.max(0, 1 - centerDist * 0.7); // 1 = penuh, ~0.3 = redup
+    /* ── Segmen ── */
+    for (let i = 0; i < N; i++) {
+      const seg = SEGMENTS[i];
+      const st  = styleOf(seg);
+      const mid = i * SEG + rot - Math.PI / 2;
+      const a0  = mid - SEG / 2, a1 = mid + SEG / 2;
 
-      /* ── Warna solid pita (dengan gradient atas-bawah tipis) ── */
-      const grad = ctx.createLinearGradient(0, y, 0, y + bandH);
-      grad.addColorStop(0,    seg.light);
-      grad.addColorStop(0.12, seg.color);
-      grad.addColorStop(0.88, seg.color);
-      grad.addColorStop(1,    seg.light + '88');
-      ctx.globalAlpha = 0.35 + dimFactor * 0.65;
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, y, W, bandH);
+      const g = ctx.createRadialGradient(CX, CY, rFace * 0.15, CX, CY, rFace);
+      g.addColorStop(0, st.b);
+      g.addColorStop(1, st.a);
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.arc(CX, CY, rFace, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
 
-      /* ── Garis kayu vertikal (wood grain effect) ── */
-      ctx.globalAlpha = 0.18 * dimFactor;
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 1;
-      for (let lx = 6; lx < W; lx += 10) {
-        ctx.beginPath();
-        ctx.moveTo(lx, y + 3);
-        ctx.lineTo(lx, y + bandH - 3);
-        ctx.stroke();
-      }
-      /* Highlight stripe tipis di kiri setiap plank */
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = 0.7;
-      for (let lx = 7; lx < W; lx += 10) {
-        ctx.beginPath();
-        ctx.moveTo(lx, y + 3);
-        ctx.lineTo(lx, y + bandH - 3);
-        ctx.stroke();
-      }
+    /* Garis pemisah segmen */
+    for (let i = 0; i < N; i++) {
+      const a = i * SEG + rot - Math.PI / 2 - SEG / 2;
+      ctx.beginPath();
+      ctx.moveTo(CX + Math.cos(a) * R * 0.2, CY + Math.sin(a) * R * 0.2);
+      ctx.lineTo(CX + Math.cos(a) * rFace, CY + Math.sin(a) * rFace);
+      ctx.strokeStyle = 'rgba(60,20,0,0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
-      /* ── Label angka besar ── */
-      ctx.globalAlpha = dimFactor * (seg.mult === 0 ? 0.55 : 1);
+    /* Highlight segmen JACKPOT: garis putih tebal bercahaya */
+    for (let i = 0; i < N; i++) {
+      if (SEGMENTS[i].mult < 5) continue;
+      const mid = i * SEG + rot - Math.PI / 2;
+      const a0 = mid - SEG / 2, a1 = mid + SEG / 2;
       ctx.save();
-      ctx.translate(W / 2, y + bandH / 2);
-
-      /* Shadow teks */
-      ctx.shadowColor = 'rgba(0,0,0,0.9)';
-      ctx.shadowBlur  = 8;
-
-      /* Angka utama */
-      ctx.fillStyle    = seg.textColor;
-      ctx.font         = `900 ${Math.round(bandH * 0.44)}px Syne, sans-serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(seg.label, 0, -bandH * 0.08);
-
-      /* Sub label */
-      ctx.shadowBlur  = 4;
-      ctx.fillStyle   = seg.subColor;
-      ctx.font        = `700 ${Math.round(bandH * 0.17)}px Syne, sans-serif`;
-      ctx.fillText(seg.sub, 0, bandH * 0.30);
+      ctx.beginPath();
+      ctx.moveTo(CX + Math.cos(mid) * rFace * 0.2, CY + Math.sin(mid) * rFace * 0.2);
+      ctx.arc(CX, CY, rFace * 0.97, a0, a1);
+      ctx.closePath();
+      ctx.shadowColor = 'rgba(255,255,255,0.9)';
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
       ctx.restore();
-
-      ctx.globalAlpha = 1;
-
-      /* ── Garis batas antar pita: hitam tebal + highlight tipis ── */
-      ctx.fillStyle = 'rgba(0,0,0,0.75)';
-      ctx.fillRect(0, y + bandH - 2, W, 4);
-      ctx.fillStyle = 'rgba(255,255,255,0.10)';
-      ctx.fillRect(0, y + bandH + 2, W, 1.5);
     }
 
-    /* ── Shading silinder: gelap kiri-kanan, terang tengah (3D drum look) ── */
-    const cylGrad = ctx.createLinearGradient(0, 0, W, 0);
-    cylGrad.addColorStop(0,    'rgba(0,0,0,0.62)');
-    cylGrad.addColorStop(0.10, 'rgba(0,0,0,0.22)');
-    cylGrad.addColorStop(0.28, 'rgba(0,0,0,0.05)');
-    cylGrad.addColorStop(0.50, 'rgba(255,255,255,0.07)');
-    cylGrad.addColorStop(0.72, 'rgba(0,0,0,0.05)');
-    cylGrad.addColorStop(0.90, 'rgba(0,0,0,0.22)');
-    cylGrad.addColorStop(1,    'rgba(0,0,0,0.62)');
-    ctx.fillStyle = cylGrad;
-    ctx.fillRect(0, 0, W, H);
+    /* Label radial */
+    for (let i = 0; i < N; i++) {
+      const seg = SEGMENTS[i];
+      const st  = styleOf(seg);
+      const mid = i * SEG + rot - Math.PI / 2;
+      const label = seg.mult === 0 ? 'BANGKRUT' : seg.mult >= 5 ? 'JACKPOT' : seg.mult + '×';
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(mid);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      const fs = seg.mult === 0 ? R * 0.078 : seg.mult >= 5 ? R * 0.09 : R * 0.18;
+      ctx.font = `900 ${Math.round(fs)}px Syne, sans-serif`;
+      ctx.fillStyle = st.text;
+      ctx.shadowColor = seg.mult === 0 ? 'rgba(0,0,0,0.6)' : 'rgba(255,240,200,0.35)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(label, rFace * 0.92, 0);
+      if (seg.mult >= 1 && seg.mult < 5) {
+        ctx.font = `800 ${Math.round(R * 0.07)}px Syne, sans-serif`;
+        ctx.fillText('WIN', rFace * 0.92, R * 0.14);
+      }
+      ctx.restore();
+    }
 
-    /* Highlight shimmer kiri (seperti pantulan cahaya di foto) */
-    const shimmer = ctx.createLinearGradient(0, 0, W * 0.32, 0);
-    shimmer.addColorStop(0,    'rgba(255,255,255,0.00)');
-    shimmer.addColorStop(0.35, 'rgba(255,255,255,0.13)');
-    shimmer.addColorStop(0.65, 'rgba(255,255,255,0.04)');
-    shimmer.addColorStop(1,    'rgba(255,255,255,0.00)');
-    ctx.fillStyle = shimmer;
-    ctx.fillRect(0, 0, W * 0.32, H);
+    /* Pasak emas di tiap batas segmen */
+    for (let i = 0; i < N; i++) {
+      const a = i * SEG + rot - Math.PI / 2 - SEG / 2;
+      const px = CX + Math.cos(a) * rFace * 0.95, py = CY + Math.sin(a) * rFace * 0.95;
+      const pg = ctx.createRadialGradient(px - 1, py - 1, 0.5, px, py, R * 0.035);
+      pg.addColorStop(0, '#fff6c8'); pg.addColorStop(1, '#c8921a');
+      ctx.beginPath();
+      ctx.arc(px, py, R * 0.03, 0, TAU);
+      ctx.fillStyle = pg;
+      ctx.fill();
+    }
 
-    /* ── Zona gelap atas & bawah (pita tidak aktif lebih redup) ── */
-    const fadeTop = ctx.createLinearGradient(0, 0, 0, bandH * 0.8);
-    fadeTop.addColorStop(0,   'rgba(0,0,0,0.55)');
-    fadeTop.addColorStop(1,   'rgba(0,0,0,0.00)');
-    ctx.fillStyle = fadeTop;
-    ctx.fillRect(0, 0, W, bandH * 0.8);
+    /* Cincin muka roda */
+    ctx.beginPath();
+    ctx.arc(CX, CY, rFace, 0, TAU);
+    ctx.strokeStyle = '#0a0f14';
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
-    const fadeBot = ctx.createLinearGradient(0, H - bandH * 0.8, 0, H);
-    fadeBot.addColorStop(0,   'rgba(0,0,0,0.00)');
-    fadeBot.addColorStop(1,   'rgba(0,0,0,0.55)');
-    ctx.fillStyle = fadeBot;
-    ctx.fillRect(0, H - bandH * 0.8, W, bandH * 0.8);
+    /* ── Lampu di bingkai (berkedip bergantian) ── */
+    const bulbs = 20;
+    const tPhase = Math.floor((now || 0) / 260);
+    for (let i = 0; i < bulbs; i++) {
+      const a = (i / bulbs) * TAU - Math.PI / 2;
+      const bx = CX + Math.cos(a) * R * 0.93, by = CY + Math.sin(a) * R * 0.93;
+      const on = (i + tPhase) % 2 === 0;
+      if (on) {
+        const glow = ctx.createRadialGradient(bx, by, 0, bx, by, R * 0.1);
+        glow.addColorStop(0, 'rgba(255,240,190,0.85)');
+        glow.addColorStop(1, 'rgba(255,200,90,0)');
+        ctx.beginPath();
+        ctx.arc(bx, by, R * 0.1, 0, TAU);
+        ctx.fillStyle = glow;
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(bx, by, R * 0.028, 0, TAU);
+      ctx.fillStyle = on ? '#fff8dc' : '#7a6a48';
+      ctx.fill();
+    }
 
-    /* ── Garis horizontal indicator di tengah (pointer line) ── */
+    /* ── Hub tengah emas ── */
+    const hr = R * 0.17;
+    const hg = ctx.createRadialGradient(CX - hr * 0.3, CY - hr * 0.3, 1, CX, CY, hr);
+    hg.addColorStop(0, '#fff2b0'); hg.addColorStop(0.55, '#e0a82a'); hg.addColorStop(1, '#8a5a10');
+    ctx.beginPath();
+    ctx.arc(CX, CY, hr, 0, TAU);
+    ctx.fillStyle = hg;
+    ctx.fill();
+    ctx.strokeStyle = '#5a3a08';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(CX, CY, hr * 0.45, 0, TAU);
+    ctx.fillStyle = '#7a4c0c';
+    ctx.fill();
+
+    /* ── Jarum emas di atas (teardrop, mengayun saat melewati pasak) ── */
     ctx.save();
-    ctx.strokeStyle = 'rgba(240,208,80,0.60)';
-    ctx.lineWidth   = 1.5;
-    ctx.setLineDash([6, 4]);
+    ctx.translate(CX, CY - R * 0.9);
+    ctx.rotate(_pointerKick);
+    const ph = R * 0.24, pw = R * 0.085;
     ctx.beginPath();
-    ctx.moveTo(0, midY - bandH / 2);
-    ctx.lineTo(W, midY - bandH / 2);
+    ctx.moveTo(0, ph);
+    ctx.bezierCurveTo(pw * 1.2, ph * 0.35, pw * 1.3, -pw * 0.6, 0, -pw * 1.1);
+    ctx.bezierCurveTo(-pw * 1.3, -pw * 0.6, -pw * 1.2, ph * 0.35, 0, ph);
+    ctx.closePath();
+    const pgd = ctx.createLinearGradient(-pw, 0, pw, 0);
+    pgd.addColorStop(0, '#f6c64a'); pgd.addColorStop(0.5, '#fff0a8'); pgd.addColorStop(1, '#d9951a');
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = pgd;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.strokeStyle = '#8a5a10';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(0, midY + bandH / 2);
-    ctx.lineTo(W, midY + bandH / 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.arc(0, 0, pw * 0.35, 0, TAU);
+    ctx.fillStyle = '#a56d12';
+    ctx.fill();
     ctx.restore();
+  }
 
-    /* ── Flash putih saat pita berganti (tick) ── */
-    if (tickFlash) {
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.fillRect(0, 0, W, H);
-    }
+  /* Loop idle: lampu tetap berkedip selagi belum spin */
+  function _idleLoop(now) {
+    if (_spinning || _done || !canvas || !document.body.contains(canvas)) { _raf = null; return; }
+    _pointerKick *= 0.85;
+    drawWheel(_rot, now);
+    _raf = requestAnimationFrame(_idleLoop);
   }
 
   /* ══════════════════════════════════════
-     ANIMASI SPIN — easeOut quintic
+     ANIMASI SPIN — easeOut quintic, roda berputar searah jarum jam
   ══════════════════════════════════════ */
   function easeOut5(t) { return 1 - Math.pow(1 - t, 5); }
 
   async function runSpin(targetIdx) {
-    const TOTAL_MS   = 4000;
+    const TAU = Math.PI * 2;
+    const SEG = TAU / N;
+    const TOTAL_MS   = 5000;
     const MIN_ROUNDS = 6;
-    const bandH      = _bandH;
 
-    /* scrollY akhir = center pita targetIdx pas di midY (H/2) */
-    const vi          = targetIdx + MIN_ROUNDS * N;
-    const finalScroll = vi * bandH + bandH / 2 - H / 2;
+    /* Segmen target ke bawah jarum (atas): rot ≡ -i*SEG, plus offset acak di dalam segmen */
+    const jitter = (Math.random() - 0.5) * SEG * 0.6;
+    const startRot = _rot % TAU;
+    let finalRot = -targetIdx * SEG + jitter;
+    finalRot = finalRot + Math.ceil((startRot - finalRot) / TAU) * TAU + MIN_ROUNDS * TAU;
+    const delta = finalRot - startRot;
 
     const t0 = performance.now();
-    let _lastBand = null;
+    _lastPeg = null;
 
     return new Promise(resolve => {
       function frame(now) {
-        const elapsed = now - t0;
-        const t       = Math.min(elapsed / TOTAL_MS, 1);
-        const tE      = easeOut5(t);
-        const curScroll = finalScroll * tE;
+        const t  = Math.min((now - t0) / TOTAL_MS, 1);
+        const cur = startRot + delta * easeOut5(t);
+        _rot = cur;
 
-        const bandCrossed = Math.floor(curScroll / bandH);
-        let flash = false;
-        if (bandCrossed !== _lastBand) {
-          SFX.wheel.tick();
-          _lastBand = bandCrossed;
-          flash = true;
+        /* pasak lewat jarum: batas segmen berada di rot = SEG/2 + k*SEG (mod) */
+        const peg = Math.floor((cur + SEG / 2) / SEG);
+        if (peg !== _lastPeg) {
+          if (_lastPeg !== null) { SFX.wheel.tick(); _pointerKick = 0.38; }
+          _lastPeg = peg;
         }
+        _pointerKick *= 0.86;
 
-        drawBarrel(curScroll, flash);
-        if (t >= 1) { resolve(); return; }
+        drawWheel(cur, now);
+        if (t >= 1) { _rot = finalRot; resolve(); return; }
         _raf = requestAnimationFrame(frame);
       }
       _raf = requestAnimationFrame(frame);
@@ -500,10 +423,12 @@ const Wheel = (() => {
     _done     = false;
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
 
+    _rot = 0; _pointerKick = 0;
     render();
     requestAnimationFrame(() => {
       initCanvas();
-      drawBarrel(_bandH * 0.5, false); // mulai di tengah pita pertama
+      drawWheel(_rot, performance.now());
+      _raf = requestAnimationFrame(_idleLoop);
     });
   }
 
@@ -513,12 +438,13 @@ const Wheel = (() => {
     if (!btn || btn.disabled) return;
 
     _spinning = true;
+    if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
     btn.disabled = true;
     window.setTokenSlotMode('hidden');
-    window.setStatus('🎯 Barrel berputar...', true);
+    window.setStatus('🎯 Roda berputar...', true);
     SFX.wheel.spinStart();
 
-    document.querySelector('.wb-machine-wrap')?.classList.add('is-spinning');
+    document.querySelector('.wf-stage')?.classList.add('is-spinning');
 
     const hud = document.getElementById('wheelResultHud');
     if (hud) { hud.textContent = '🎯 Berputar...'; hud.className = 'wheel-result-hud spinning'; }
@@ -535,9 +461,10 @@ const Wheel = (() => {
     await runSpin(targetIdx);
     if (_done) return;
 
-    document.querySelector('.wb-machine-wrap')?.classList.remove('is-spinning');
+    document.querySelector('.wf-stage')?.classList.remove('is-spinning');
 
     const actualWin = seg.mult >= 1;
+    drawWheel(_rot, performance.now());
     if (hud) {
       hud.textContent = actualWin ? `🏆 ${seg.label} — Menang!` : `💀 ${seg.label}`;
       hud.className   = 'wheel-result-hud ' + (actualWin ? 'win' : 'lose');

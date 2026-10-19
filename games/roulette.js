@@ -3,7 +3,7 @@
    Expose: Roulette.init(gacha, onResult)
 
    VISUAL:
-   - Wheel diam, ditampilkan perspektif 3D dari atas
+   - Wheel tampak atas (bulat) bergaya roulette kasino
    - Bola putih berputar di TRACK LUAR, arah KIRI terus (CCW)
    - Kecepatan dimulai lambat, steady, lalu deselerasi smooth
    - Bola jatuh ke dalam slot dengan bounce
@@ -46,16 +46,18 @@ const Roulette = (() => {
   let canvas, ctx, CX, CY, R;
 
   /* ── Radius ratios ── */
-  const rRim    = 0.97;
-  const rWheel  = 0.78;
-  const rInner  = 0.38;
-  const rTrack  = 0.89;   // orbit bola
-  const rSlot   = 0.80;   // orbit bola saat di dalam slot
+  const rRim    = 0.97;   // tepi luar kayu
+  const rBowl   = 0.89;   // batas kayu → jalur bola
+  const rWheel  = 0.80;   // tepi luar kantong angka
+  const rInner  = 0.58;   // tepi dalam kantong angka
+  const rFelt   = 0.47;   // tepi dalam ring hijau
+  const rTrack  = 0.845;  // orbit bola
+  const rSlot   = 0.70;   // orbit bola saat di dalam slot
 
   /* ── Perspektif: elips vertikal ──
      scaleY = seberapa "gepeng" tampilan dari atas
      0.32 = sudut pandang ~30° dari atas, mirip roulette kasino asli */
-  const PERSP = 0.32;
+  const PERSP = 1;   // tampak atas penuh (bulat)
 
   /* ── HTML ── */
   function render() {
@@ -98,7 +100,7 @@ const Roulette = (() => {
     const wrap = canvas.parentElement;
     const size = Math.min(wrap.clientWidth, 320);
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const h   = Math.round(size * (0.42 + PERSP * 0.6));
+    const h   = size;
     _LW = size; _LH = h;
     canvas.width  = Math.round(size * dpr);
     canvas.height = Math.round(h * dpr);
@@ -134,137 +136,170 @@ const Roulette = (() => {
   ══════════════════════════════════════ */
   function drawWheel() {
     const rimR = R * rRim;
+    const TAU  = Math.PI * 2;
 
-    /* ── Bayangan bawah roda ── */
-    const shadowGrad = ctx.createRadialGradient(CX, CY + rimR * PERSP * 0.6, rimR * 0.2, CX, CY + rimR * PERSP * 0.6, rimR * 1.1);
-    shadowGrad.addColorStop(0, 'rgba(0,0,0,0.55)');
-    shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    /* ── Bayangan ── */
     ctx.beginPath();
-    ctx.ellipse(CX, CY + rimR * PERSP * 0.7, rimR * 1.05, rimR * PERSP * 0.35, 0, 0, Math.PI * 2);
-    ctx.fillStyle = shadowGrad;
+    ctx.arc(CX, CY + 3, rimR + 2, 0, TAU);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fill();
 
-    /* ── Rim luar (tebal, elips) ── */
+    /* ── Rim kayu luar ── */
+    const wood = ctx.createRadialGradient(CX - rimR * 0.3, CY - rimR * 0.3, rimR * 0.2, CX, CY, rimR);
+    wood.addColorStop(0,   '#8a5a2b');
+    wood.addColorStop(0.6, '#5e3a1a');
+    wood.addColorStop(1,   '#2e1a0b');
     ctx.beginPath();
-    ctx.ellipse(CX, CY, rimR, rimR * PERSP, 0, 0, Math.PI * 2);
-    const rimGrad = ctx.createLinearGradient(CX - rimR, CY - rimR * PERSP, CX + rimR, CY + rimR * PERSP);
-    rimGrad.addColorStop(0,   C.rimLight);
-    rimGrad.addColorStop(0.4, C.rim);
-    rimGrad.addColorStop(1,   '#000');
-    ctx.fillStyle = rimGrad;
+    ctx.arc(CX, CY, rimR, 0, TAU);
+    ctx.fillStyle = wood;
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(CX, CY, rimR, rimR * PERSP, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = C.goldDim;
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = C.gold;
     ctx.stroke();
 
-    /* ── Slots — gambar dari Y atas ke bawah (painter's) ── */
-    const slotData = Array.from({ length: N }, (_, i) => {
-      const midAng = i * SLOT_ANG - Math.PI / 2;  // mulai dari atas (12 o'clock)
-      const p      = proj(midAng, R * (rInner + rWheel) / 2);
-      return { i, midAng, screenY: p.y };
-    }).sort((a, b) => a.screenY - b.screenY);
+    /* Ornamen berlian emas di rim */
+    const dR = R * (rRim + rBowl) / 2;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU - Math.PI / 2 + Math.PI / 16;
+      ctx.save();
+      ctx.translate(CX + Math.cos(a) * dR, CY + Math.sin(a) * dR);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(0, -R * 0.034); ctx.lineTo(R * 0.017, 0);
+      ctx.lineTo(0, R * 0.034);  ctx.lineTo(-R * 0.017, 0);
+      ctx.closePath();
+      ctx.fillStyle = C.goldLight;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.restore();
+    }
 
-    for (const { i, midAng } of slotData) {
+    /* ── Jalur bola (mangkuk gelap mengkilap) ── */
+    const bowl = ctx.createRadialGradient(CX, CY, R * rWheel, CX, CY, R * rBowl);
+    bowl.addColorStop(0,   '#1a0f06');
+    bowl.addColorStop(0.5, '#3b2412');
+    bowl.addColorStop(1,   '#120a04');
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * rBowl, 0, TAU);
+    ctx.fillStyle = bowl;
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = C.goldDim;
+    ctx.stroke();
+
+    /* ── Kantong angka ── */
+    for (let i = 0; i < N; i++) {
+      const midAng = i * SLOT_ANG - Math.PI / 2;
       const ang0 = midAng - SLOT_ANG / 2;
       const ang1 = midAng + SLOT_ANG / 2;
-      const slot  = SLOTS[i];
+      const slot = SLOTS[i];
 
       let base, lite;
       if      (slot.color === 'red')   { base = C.red;   lite = C.redLight;   }
       else if (slot.color === 'black') { base = C.black; lite = C.blackLight; }
       else                             { base = C.green; lite = C.greenLight; }
 
-      /* Path slot: dalam → luar arc → dalam arc balik */
-      const STEPS = 8;
-      ctx.beginPath();
-      const pi0 = proj(ang0, R * rInner);
-      ctx.moveTo(pi0.x, pi0.y);
-      const pw0 = proj(ang0, R * rWheel);
-      ctx.lineTo(pw0.x, pw0.y);
-      for (let k = 1; k <= STEPS; k++) {
-        const a = ang0 + (ang1 - ang0) * (k / STEPS);
-        const p = proj(a, R * rWheel);
-        ctx.lineTo(p.x, p.y);
-      }
-      const pi1 = proj(ang1, R * rInner);
-      ctx.lineTo(pi1.x, pi1.y);
-      for (let k = STEPS - 1; k >= 0; k--) {
-        const a = ang0 + (ang1 - ang0) * (k / STEPS);
-        const p = proj(a, R * rInner);
-        ctx.lineTo(p.x, p.y);
-      }
-      ctx.closePath();
+      const g = ctx.createRadialGradient(CX, CY, R * rInner, CX, CY, R * rWheel);
+      g.addColorStop(0, base);
+      g.addColorStop(1, lerpHex(base, lite, 0.55));
 
-      /* Shading: bawah (sin positif) lebih terang karena cahaya dari atas */
-      const bright = (Math.sin(midAng) + 1) / 2;
-      ctx.fillStyle = lerpHex(base, lite, bright * 0.5);
+      ctx.beginPath();
+      ctx.arc(CX, CY, R * rWheel, ang0, ang1);
+      ctx.arc(CX, CY, R * rInner, ang1, ang0, true);
+      ctx.closePath();
+      ctx.fillStyle = g;
       ctx.fill();
 
-      /* Divider tipis emas */
+      /* Pemisah emas */
       ctx.beginPath();
-      const d0i = proj(ang0, R * rInner);
-      const d0w = proj(ang0, R * rWheel);
-      ctx.moveTo(d0i.x, d0i.y);
-      ctx.lineTo(d0w.x, d0w.y);
-      ctx.strokeStyle = 'rgba(212,175,90,0.2)';
-      ctx.lineWidth   = 0.8;
+      ctx.moveTo(CX + Math.cos(ang0) * R * rInner, CY + Math.sin(ang0) * R * rInner);
+      ctx.lineTo(CX + Math.cos(ang0) * R * rWheel, CY + Math.sin(ang0) * R * rWheel);
+      ctx.strokeStyle = 'rgba(240,208,128,0.75)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      /* Nomor (radial, ujung atas menghadap luar) */
+      ctx.save();
+      ctx.translate(CX + Math.cos(midAng) * R * (rWheel - 0.085), CY + Math.sin(midAng) * R * (rWheel - 0.085));
+      ctx.rotate(midAng + Math.PI / 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = `700 ${Math.round(R * 0.095)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 2;
+      ctx.fillText(String(i + 1), 0, 0);
+      ctx.restore();
+    }
+
+    /* Cincin emas luar & dalam kantong */
+    for (const rr of [rWheel, rInner]) {
+      ctx.beginPath();
+      ctx.arc(CX, CY, R * rr, 0, TAU);
+      ctx.strokeStyle = C.gold;
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    /* ── Inner rim & hub ── */
+    /* ── Ring hijau (felt) ── */
+    const felt = ctx.createRadialGradient(CX, CY, R * rFelt, CX, CY, R * rInner);
+    felt.addColorStop(0, '#0f5a32');
+    felt.addColorStop(1, '#1f8a4c');
     ctx.beginPath();
-    ctx.ellipse(CX, CY, R * rInner, R * rInner * PERSP, 0, 0, Math.PI * 2);
+    ctx.arc(CX, CY, R * rInner, 0, TAU);
+    ctx.arc(CX, CY, R * rFelt, 0, TAU, true);
+    ctx.fillStyle = felt;
+    ctx.fill('evenodd');
+    /* garis tipis pada felt */
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * (rInner + rFelt) / 2, 0, TAU);
+    ctx.strokeStyle = 'rgba(240,208,128,0.35)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(CX, CY, R * rFelt, 0, TAU);
     ctx.strokeStyle = C.gold;
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
-    const hubR = R * rInner * 0.82;
-    const hg   = ctx.createRadialGradient(CX - 3, CY - hubR * PERSP * 0.5, 1, CX, CY, hubR);
-    hg.addColorStop(0,   C.goldLight);
-    hg.addColorStop(0.5, C.gold);
-    hg.addColorStop(1,   C.goldDim);
+    /* ── Pusat: kayu + turret emas ── */
+    const cg = ctx.createRadialGradient(CX - R * 0.1, CY - R * 0.1, R * 0.05, CX, CY, R * rFelt);
+    cg.addColorStop(0, '#6e4522');
+    cg.addColorStop(1, '#2a170a');
     ctx.beginPath();
-    ctx.ellipse(CX, CY, hubR, hubR * PERSP, 0, 0, Math.PI * 2);
+    ctx.arc(CX, CY, R * rFelt, 0, TAU);
+    ctx.fillStyle = cg;
+    ctx.fill();
+
+    /* Jari-jari emas 4 arah (di luar area teks HUD) */
+    for (let k = 0; k < 4; k++) {
+      const a = k * Math.PI / 2 + Math.PI / 4;
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(a);
+      const lg = ctx.createLinearGradient(0, -R * 0.03, 0, R * 0.03);
+      lg.addColorStop(0, C.goldLight);
+      lg.addColorStop(0.5, C.gold);
+      lg.addColorStop(1, C.goldDim);
+      ctx.fillStyle = lg;
+      ctx.fillRect(R * 0.3, -R * 0.025, R * 0.15, R * 0.05);
+      ctx.beginPath();
+      ctx.arc(R * 0.455, 0, R * 0.04, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    /* Piringan tengah gelap untuk teks HUD */
+    const hubR = R * 0.32;
+    const hg = ctx.createRadialGradient(CX - hubR * 0.3, CY - hubR * 0.3, 2, CX, CY, hubR);
+    hg.addColorStop(0, '#3a2412');
+    hg.addColorStop(1, '#120a04');
+    ctx.beginPath();
+    ctx.arc(CX, CY, hubR, 0, TAU);
     ctx.fillStyle = hg;
     ctx.fill();
-
-    /* Speeder jari-jari hub */
-    ctx.save();
-    ctx.translate(CX, CY);
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const p0 = { x: Math.cos(a) * hubR * 0.15, y: Math.sin(a) * hubR * PERSP * 0.15 };
-      const p1 = { x: Math.cos(a) * R * rInner * 0.9, y: Math.sin(a) * R * rInner * PERSP * 0.9 };
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      ctx.strokeStyle = 'rgba(212,175,90,0.18)';
-      ctx.lineWidth   = 0.8;
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    /* Center pin */
-    ctx.beginPath();
-    ctx.arc(CX, CY, R * 0.032, 0, Math.PI * 2);
-    ctx.fillStyle   = C.bg;
-    ctx.fill();
-    ctx.strokeStyle = C.goldDim;
-    ctx.lineWidth   = 1;
-    ctx.stroke();
-
-    /* ── Track groove (orbit bola) elips ── */
-    ctx.beginPath();
-    ctx.ellipse(CX, CY, R * rTrack, R * rTrack * PERSP, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.lineWidth   = R * 0.06;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(CX, CY, R * rTrack, R * rTrack * PERSP, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(212,175,90,0.08)';
-    ctx.lineWidth   = 1;
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = 2;
     ctx.stroke();
   }
 
