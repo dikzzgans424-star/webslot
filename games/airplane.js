@@ -206,16 +206,19 @@ const Airplane = (() => {
   /* Rp hadiah penuh kalau semua diambil sekarang (RTP 0.95) */
   function _fullNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95); }
   /* Rp separuh taruhan di multiplier sekarang */
-  function _halfNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95 * 0.5); }
-  /* Total Rp kalau cashout penuh sekarang (termasuk 50% yang sudah diambil) */
-  function _totalNow() { return _halfTaken ? _halfPrize + _halfNow() : _fullNow(); }
+  /* Tanpa pajak 5%: bet 100 cashout 50% di 2× = tepat 100 (balik modal, tidak rugi) */
+  function _halfNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.5); }
+  /* Sisa separuh taruhan kalau di-cashout sekarang (pajak 5% seperti cashout biasa) */
+  function _remainNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.5 * 0.95); }
+  /* Total Rp kalau cashout sekarang (termasuk 50% yang sudah diambil) */
+  function _totalNow() { return _halfTaken ? _halfPrize + _remainNow() : _fullNow(); }
   const _rp = n => 'Rp ' + n.toLocaleString('id-ID');
 
   function _updateButtons() {
-    if (_phase !== 'flying' || _halfTaken) return;   // setelah 50% diambil, kedua tombol dikunci abu-abu
+    if (_phase !== 'flying') return;
     const cb = document.getElementById('apCashBtn');
     const hb = document.getElementById('apHalfBtn');
-    if (cb) cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">${_rp(_totalNow())}</span>`;
+    if (cb) cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">${_rp(_halfTaken ? _remainNow() : _fullNow())}</span>`;
     if (hb && !_halfTaken) hb.innerHTML = `<span class="ap-cash-top">CASHOUT 50%</span><span class="ap-cash-amt">${_rp(_halfNow())}</span>`;
   }
 
@@ -255,16 +258,8 @@ const Airplane = (() => {
       hb.classList.add('used');
       hb.innerHTML = `<span class="ap-cash-top">✓ 50% DIAMBIL</span><span class="ap-cash-amt">${_rp(_halfPrize)}</span>`;
     }
-    /* Tombol Cashout kiri juga ikut abu-abu & terkunci — tinggal tunggu pesawat jatuh */
-    const cb = document.getElementById('apCashBtn');
-    if (cb) {
-      cb.disabled = true;
-      cb.classList.remove('ap-btn-take');
-      cb.classList.add('ap-btn-half', 'used');
-      cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">terkunci</span>`;
-    }
     const st = document.getElementById('apStatus');
-    if (st) { st.textContent = `50% diambil ${_multiplier.toFixed(2)}× — ${_rp(_halfPrize)}. Tunggu pesawat jatuh...`; st.style.color = '#4caf82'; }
+    if (st) { st.textContent = `50% diambil ${_multiplier.toFixed(2)}× — ${_rp(_halfPrize)}. Sisanya masih terbang!`; st.style.color = '#4caf82'; }
   }
 
   function _doCashout() {
@@ -284,7 +279,7 @@ const Airplane = (() => {
       st.style.color = '#4caf82';
     }
     /* menang kalau total > modal; kalau tidak, dihitung rugi sebagian */
-    setTimeout(() => _callback(prize > _betVal() * 1000, prize), 3000);
+    setTimeout(() => _callback(prize >= _betVal() * 1000, prize), 3000);
   }
 
   function _doCrash() {
@@ -304,7 +299,7 @@ const Airplane = (() => {
       st.style.color = '#cf5c5c';
     }
     /* Kalau 50% sudah diambil, jumlah itu tetap jadi milik pemain */
-    setTimeout(() => _callback(_halfPrize > _betVal() * 1000, _halfPrize), 3500);
+    setTimeout(() => _callback(_halfPrize >= _betVal() * 1000, _halfPrize), 3500);
   }
 
   /* ════════════════════════════════

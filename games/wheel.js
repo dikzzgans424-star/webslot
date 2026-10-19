@@ -22,7 +22,7 @@ const Wheel = (() => {
     { mult: 1,   label: '1×',      st: 'win1',    weight: 30 },
     { mult: 3,   label: '3×',      st: 'win3',    weight: 18 },
     { mult: 1.5, label: '1.5×',    st: 'mint',    weight: 28 },
-    { mult: 7,   label: 'JACKPOT', st: 'jackpot', weight: 4 },
+    { mult: 7,   label: '7×', st: 'jackpot', weight: 4 },
     { mult: 3.5, label: '3.5×',    st: 'sky',     weight: 12 },
     { mult: 4.7, label: '4.7×',    st: 'lav',     weight: 8 },
   ];
@@ -274,17 +274,14 @@ const Wheel = (() => {
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      const fs = seg.mult === 0 ? R * 0.15 : isJP ? R * 0.1 : R * 0.17;
-      ctx.font = `400 ${Math.round(fs)}px 'DM Serif Display', serif`;
+      const fs = seg.mult === 0 ? R * 0.13 : isJP ? R * 0.2 : R * 0.16;
+      ctx.font = `900 ${Math.round(fs)}px Cinzel, 'DM Serif Display', serif`;
       ctx.fillStyle = st.text;
-      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.letterSpacing = '1px';
+      ctx.shadowColor = 'rgba(0,0,0,0.22)';
       ctx.shadowBlur = 3;
       ctx.shadowOffsetY = 1;
       ctx.fillText(label, rFace * 0.84, 0);
-      if (isJP) {
-        ctx.font = `400 ${Math.round(R * 0.17)}px 'DM Serif Display', serif`;
-        ctx.fillText('7×', rFace * 0.46, 0);
-      }
       ctx.restore();
     }
 
@@ -423,6 +420,7 @@ const Wheel = (() => {
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
 
     _rot = 0; _pointerKick = 0;
+    try { document.fonts && document.fonts.load('900 20px Cinzel'); } catch (e) {}
     render();
     requestAnimationFrame(() => {
       initCanvas();
