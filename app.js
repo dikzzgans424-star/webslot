@@ -738,7 +738,7 @@ async function onGameResult(isWin, moneyWon) {
   setTokenSlotMode('hidden'); // Sembunyikan tombol saat result layar selesai muncul
 
   let balanceChange = 0;
-  if (_selectedGame === 'plinko') {
+  if (_selectedGame === 'plinko' || (_selectedGame === 'airplane' && !isWin)) {
     /* Plinko selalu punya payout (0.3x-10x), walau "rugi" itu cuma
        rugi SEBAGIAN bet, bukan kehilangan semuanya */
     const wonBet  = Math.floor(moneyWon / 1000);
