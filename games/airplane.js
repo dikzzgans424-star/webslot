@@ -48,6 +48,8 @@ const Airplane = (() => {
   let _exitT    = 0;   // untuk fase done/crashed exit ke kanan-bawah
   let _speed    = 0.6; // kecepatan dunia (parallax), makin tinggi multiplier makin kencang
   let _hills    = [];
+  let _halfTaken = false;  // cashout 50% sudah dipakai?
+  let _halfPrize = 0;      // Rp yang sudah diambil lewat cashout 50%
   let _streaks  = [];
 
   /* ── Canvas ── */
@@ -75,6 +77,7 @@ const Airplane = (() => {
     _cloudT  = 0; _crashT = 0; _flyT = 0; _exitT = 0;
     _bgRed   = 0;
     _speed   = 0.6;
+    _halfTaken = false; _halfPrize = 0;
     _tilt    = 0;
     _crashStartX = null;
     _crashStartY = null;
@@ -114,7 +117,7 @@ const Airplane = (() => {
           <canvas id="apCanvas"></canvas>
         </div>
         <div class="ap-btn-row" id="apBtnRow">
-          <button class="ap-btn ap-btn-start ap-main" id="apMainBtn" onclick="Airplane._main()">
+          <button class="ap-btn ap-btn-start ap-main" id="apMainBtn" onclick="Airplane._start()">
             ▶ MULAI
           </button>
         </div>
@@ -200,18 +203,20 @@ const Airplane = (() => {
      CONTROLS
   ════════════════════════════════ */
   function _betVal() { return _gacha.betAmount || (_gacha.money / 1000); }
-  function _prizeNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95); }
+  /* Rp hadiah penuh kalau semua diambil sekarang (RTP 0.95) */
+  function _fullNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95); }
+  /* Rp separuh taruhan di multiplier sekarang */
+  function _halfNow() { return Math.floor(_betVal() * _multiplier * 1000 * 0.95 * 0.5); }
+  /* Total Rp kalau cashout penuh sekarang (termasuk 50% yang sudah diambil) */
+  function _totalNow() { return _halfTaken ? _halfPrize + _halfNow() : _fullNow(); }
+  const _rp = n => 'Rp ' + n.toLocaleString('id-ID');
 
-  function _updateMainBtn() {
-    const mb = document.getElementById('apMainBtn');
-    if (!mb || _phase !== 'flying') return;
-    mb.innerHTML = `<span class="ap-cash-top">💰 AMBIL SEKARANG</span><span class="ap-cash-amt">Rp ${_prizeNow().toLocaleString('id-ID')} · ${_multiplier.toFixed(2)}×</span>`;
-  }
-
-  /* Satu tombol: MULAI → (berubah) AMBIL SEKARANG */
-  function _main() {
-    if (_phase === 'ready') _start();
-    else if (_phase === 'flying') _cashout();
+  function _updateButtons() {
+    if (_phase !== 'flying') return;
+    const cb = document.getElementById('apCashBtn');
+    const hb = document.getElementById('apHalfBtn');
+    if (cb) cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">${_rp(_totalNow())}</span>`;
+    if (hb && !_halfTaken) hb.innerHTML = `<span class="ap-cash-top">CASHOUT 50%</span><span class="ap-cash-amt">${_rp(_halfNow())}</span>`;
   }
 
   function _start() {
@@ -219,9 +224,15 @@ const Airplane = (() => {
     _phase = 'flying';
     SFX.airplane.engineStart();
     window.setTokenSlotMode('hidden'); // Sembunyikan tombol back begitu pesawat mulai terbang
-    const mb = document.getElementById('apMainBtn');
-    if (mb) { mb.classList.remove('ap-btn-start'); mb.classList.add('ap-btn-take'); }
-    _updateMainBtn();
+    /* Tombol MULAI diganti 2 tombol: kiri Cashout (pesawat berhenti), kanan Cashout 50% (pesawat lanjut) */
+    const row = document.getElementById('apBtnRow');
+    if (row) {
+      row.classList.add('two');
+      row.innerHTML = `
+        <button class="ap-btn ap-btn-take" id="apCashBtn" onclick="Airplane._cashout()"></button>
+        <button class="ap-btn ap-btn-half" id="apHalfBtn" onclick="Airplane._cashHalf()"></button>`;
+    }
+    _updateButtons();
     const st = document.getElementById('apStatus');
     if (st) st.textContent = 'Pesawat terus terbang!';
     _tickTimer = setInterval(_tick, TICK_MS);
@@ -232,21 +243,41 @@ const Airplane = (() => {
     _doCashout();
   }
 
+  /* Cashout 50%: ambil separuh taruhan sekarang, pesawat tetap terbang. Cuma bisa sekali. */
+  function _cashHalf() {
+    if (_phase !== 'flying' || _cashedOut || _halfTaken) return;
+    _halfTaken = true;
+    _halfPrize = _halfNow();
+    SFX.airplane.cashout();
+    const hb = document.getElementById('apHalfBtn');
+    if (hb) {
+      hb.disabled = true;
+      hb.classList.add('used');
+      hb.innerHTML = `<span class="ap-cash-top">✓ 50% DIAMBIL</span><span class="ap-cash-amt">${_rp(_halfPrize)}</span>`;
+    }
+    const st = document.getElementById('apStatus');
+    if (st) { st.textContent = `50% diambil ${_multiplier.toFixed(2)}× — ${_rp(_halfPrize)}. Sisanya terbang!`; st.style.color = '#4caf82'; }
+    _updateButtons();
+  }
+
   function _doCashout() {
     if (_cashedOut) return;
     _cashedOut = true;
     _phase     = 'done';
     clearInterval(_tickTimer);
     SFX.airplane.cashout();
-    const mb = document.getElementById('apMainBtn');
-    if (mb) { mb.disabled = true; mb.classList.remove('ap-btn-take'); mb.classList.add('ap-btn-done'); mb.textContent = '✓ DIAMBIL'; }
-    const prize = _prizeNow();
+    const cb = document.getElementById('apCashBtn');
+    const hb = document.getElementById('apHalfBtn');
+    if (cb) { cb.disabled = true; cb.classList.remove('ap-btn-take'); cb.classList.add('ap-btn-done'); cb.textContent = '✓ DIAMBIL'; }
+    if (hb) { hb.disabled = true; hb.classList.add('used'); }
+    const prize = _totalNow();
     const st = document.getElementById('apStatus');
     if (st) {
-      st.textContent = `✓ Diambil ${_multiplier.toFixed(2)}× — Rp ${prize.toLocaleString('id-ID')}!`;
+      st.textContent = `✓ Diambil ${_multiplier.toFixed(2)}× — ${_rp(prize)}!`;
       st.style.color = '#4caf82';
     }
-    setTimeout(() => _callback(true, prize), 3000);
+    /* menang kalau total > modal; kalau tidak, dihitung rugi sebagian */
+    setTimeout(() => _callback(prize > _betVal() * 1000, prize), 3000);
   }
 
   function _doCrash() {
@@ -256,14 +287,17 @@ const Airplane = (() => {
     SFX.airplane.crash();
     _crashStartX = _ax;
     _crashStartY = _ay;
-    const mb = document.getElementById('apMainBtn');
-    if (mb) { mb.disabled = true; mb.classList.remove('ap-btn-take'); mb.classList.add('ap-btn-crash'); mb.textContent = '💥 JATUH'; }
+    const cb = document.getElementById('apCashBtn');
+    const hb = document.getElementById('apHalfBtn');
+    if (cb) { cb.disabled = true; cb.classList.remove('ap-btn-take'); cb.classList.add('ap-btn-crash'); cb.textContent = '💥 JATUH'; }
+    if (hb) { hb.disabled = true; hb.classList.add('used'); }
     const st = document.getElementById('apStatus');
     if (st) {
       st.textContent = `Nabrak di ${_multiplier.toFixed(2)}×`;
       st.style.color = '#cf5c5c';
     }
-    setTimeout(() => _callback(false, _gacha.money), 3500);
+    /* Kalau 50% sudah diambil, jumlah itu tetap jadi milik pemain */
+    setTimeout(() => _callback(_halfPrize > _betVal() * 1000, _halfPrize), 3500);
   }
 
   /* ════════════════════════════════
@@ -274,7 +308,7 @@ const Airplane = (() => {
     const inc   = _multiplier >= 2.0 ? SPEED_FAST : SPEED_BASE;
     _multiplier = parseFloat((_multiplier + inc).toFixed(3));
     SFX.airplane.ascend();
-    _updateMainBtn();
+    _updateButtons();
     if (_multiplier >= _crashAt) _doCrash();
   }
 
@@ -1158,5 +1192,5 @@ _drawEngine(ctx, -10, -18);
   /* ════════════════════════════════
      EXPOSE
   ════════════════════════════════ */
-  return { init, _start, _cashout, _main };
+  return { init, _start, _cashout, _cashHalf };
 })();

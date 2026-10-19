@@ -11,20 +11,20 @@
    - 3 pita kelihatan sekaligus (tengah = aktif, atas/bawah = samar)
 
    Segments (8 pita, mirip Big Bass Wheel):
-     BANGKRUT 0× | 1× | BANGKRUT 0× | 3× | 1× | 5× JACKPOT | BANGKRUT 0× | 1×
+     ZONK 0× | 1× | ZONK 0× | 3× | 1× | 5× JACKPOT | ZONK 0× | 1×
    Warna authentic arcade: biru gelap, biru terang, kuning, oranye/coklat
 ══════════════════════════════════════ */
 const Wheel = (() => {
 
   /* ── Pita (bands) — urutan barrel dari atas ke bawah ── */
   const SEGMENTS = [
-    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
     { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
-    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
     { mult: 3,   label: '3×',       sub: 'WIN',         color: '#c47a00', light: '#f5a800',   textColor: '#fff', subColor: '#ffe085' },
     { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
     { mult: 5,   label: '5×',       sub: 'JACKPOT 🏆',  color: '#8a1a00', light: '#d44000',   textColor: '#ffe85c', subColor: '#ffb830' },
-    { mult: 0,   label: 'BANGKRUT', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
+    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
     { mult: 1,   label: '1×',       sub: 'WIN',         color: '#0e5a2e', light: '#1a9a50',   textColor: '#fff', subColor: '#80ffb8' },
   ];
   const N        = SEGMENTS.length;
@@ -56,10 +56,10 @@ const Wheel = (() => {
 
   /* ── Warna segmen (roda) ── */
   const SEG_STYLE = {
-    bust:    { a: '#7a1a0c', b: '#3d0c05', text: '#ff9a7a', stroke: '#2a0803' },
-    win1:    { a: '#ffd24a', b: '#e9a315', text: '#7a4a00', stroke: '#b97a0a' },
-    win3:    { a: '#ffae2b', b: '#e06a12', text: '#6a2a00', stroke: '#a9460a' },
-    jackpot: { a: '#ff5a2a', b: '#b8200a', text: '#ffe9c0', stroke: '#ffffff' },
+    bust:    { a: '#6f6288', b: '#4d4468', text: '#e4dcf2' },   /* ungu abu lembut */
+    win1:    { a: '#fbe3a1', b: '#f1cd78', text: '#7a5416' },   /* krem emas */
+    win3:    { a: '#f9c38f', b: '#f0a266', text: '#7a3d14' },   /* peach */
+    jackpot: { a: '#f59a92', b: '#e0706a', text: '#ffffff' },   /* coral */
   };
   function styleOf(seg) {
     if (seg.mult === 0) return SEG_STYLE.bust;
@@ -77,7 +77,7 @@ const Wheel = (() => {
       <div class="wheel-card" id="wheelCard">
         <div class="slot-section-label">🎯 Wheel of Fortune</div>
         <div class="wf-stage wb-machine-wrap" id="wfStage">
-          <div class="wf-title">FORTUNE<small>wheel</small></div>
+          <div class="wf-title">Fortune<small>wheel of luck</small></div>
           <div class="wf-canvas-box"><canvas id="wheelCanvas"></canvas></div>
         </div>
         <div class="wheel-result-hud" id="wheelResultHud">Tekan SPIN untuk mulai</div>
@@ -110,9 +110,9 @@ const Wheel = (() => {
         border-radius: 22px;
         overflow: hidden;
         background:
-          radial-gradient(ellipse 70% 55% at 50% 100%, rgba(40,150,210,0.55) 0%, transparent 70%),
-          linear-gradient(180deg, #06324a 0%, #0a5a7c 60%, #0b4560 100%);
-        border: 1px solid rgba(120,200,240,0.25);
+          radial-gradient(ellipse 80% 60% at 50% 100%, rgba(120,190,230,0.35) 0%, transparent 70%),
+          linear-gradient(180deg, #17384f 0%, #24546e 65%, #2b6483 100%);
+        border: 1px solid rgba(180,220,245,0.18);
         box-shadow: 0 14px 40px rgba(0,0,0,0.55), inset 0 0 40px rgba(0,0,0,0.35);
       }
       /* sorot cahaya diagonal seperti referensi */
@@ -126,23 +126,25 @@ const Wheel = (() => {
       }
       .wf-title {
         text-align: center;
-        font-family: 'Syne', sans-serif;
-        font-weight: 900;
-        font-size: 40px;
-        letter-spacing: 1px;
+        font-family: 'DM Serif Display', serif;
+        font-weight: 400;
+        font-size: 36px;
+        letter-spacing: 3px;
         line-height: 1;
         color: #fff;
-        text-shadow: 0 3px 10px rgba(0,0,0,0.5);
-        margin-bottom: 4px;
+        text-shadow: 0 3px 12px rgba(0,0,0,0.35);
+        margin-bottom: 2px;
       }
       .wf-title small {
         display: block;
-        font-size: 26px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: #2fa9e6;
+        font-size: 20px;
+        font-style: italic;
+        letter-spacing: 6px;
+        color: #a9d8f2;
         text-shadow: none;
-        margin-top: 2px;
+        margin-top: 4px;
+        text-transform: uppercase;
+        font-size: 13px;
       }
       .wf-canvas-box { position: relative; width: 100%; aspect-ratio: 1 / 0.82; }
       .wf-canvas-box #wheelCanvas { width: 100%; height: 100%; display: block; filter: none; }
@@ -208,14 +210,14 @@ const Wheel = (() => {
 
     /* ── Bingkai gelap ── */
     const frame = ctx.createRadialGradient(CX, CY, R * 0.85, CX, CY, R);
-    frame.addColorStop(0, '#16212c');
-    frame.addColorStop(0.75, '#070b10');
-    frame.addColorStop(1, '#2a3846');
+    frame.addColorStop(0, '#22303f');
+    frame.addColorStop(0.75, '#16202b');
+    frame.addColorStop(1, '#344558');
     ctx.beginPath();
     ctx.arc(CX, CY, R, 0, TAU);
     ctx.fillStyle = frame;
     ctx.fill();
-    ctx.strokeStyle = '#3d4f61';
+    ctx.strokeStyle = '#556a80';
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -240,8 +242,8 @@ const Wheel = (() => {
       ctx.beginPath();
       ctx.moveTo(CX + Math.cos(a) * rFace * 0.3, CY + Math.sin(a) * rFace * 0.3);
       ctx.lineTo(CX + Math.cos(a) * rFace, CY + Math.sin(a) * rFace);
-      ctx.strokeStyle = 'rgba(70,30,0,0.6)';
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
 
@@ -255,9 +257,9 @@ const Wheel = (() => {
       ctx.arc(CX, CY, rFace * 0.97, mid - SEG / 2 + 0.012, mid + SEG / 2 - 0.012);
       ctx.closePath();
       ctx.shadowColor = 'rgba(255,255,255,0.95)';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 3.5;
+      ctx.lineWidth = 3;
       ctx.lineJoin = 'round';
       ctx.stroke();
       ctx.restore();
@@ -268,18 +270,18 @@ const Wheel = (() => {
       const seg = SEGMENTS[i];
       const st  = styleOf(seg);
       const mid = i * SEG + rot - Math.PI / 2;
-      const label = seg.mult === 0 ? 'BANGKRUT' : seg.mult >= 5 ? 'JACKPOT' : seg.mult + '×';
+      const label = seg.mult === 0 ? 'ZONK' : seg.mult >= 5 ? 'JACKPOT' : seg.mult + '×';
       ctx.save();
       ctx.translate(CX, CY);
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      const fs = seg.mult === 0 ? R * 0.082 : seg.mult >= 5 ? R * 0.105 : R * 0.2;
-      ctx.font = `900 ${Math.round(fs)}px Syne, sans-serif`;
+      const fs = seg.mult === 0 ? R * 0.15 : seg.mult >= 5 ? R * 0.125 : R * 0.2;
+      ctx.font = `400 ${Math.round(fs)}px 'DM Serif Display', serif`;
       ctx.fillStyle = st.text;
-      ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.shadowBlur = 3;
+      ctx.shadowOffsetY = 1;
       ctx.fillText(label, rFace * 0.84, 0);
       ctx.restore();
     }
@@ -299,8 +301,8 @@ const Wheel = (() => {
     /* Cincin muka roda */
     ctx.beginPath();
     ctx.arc(CX, CY, rFace, 0, TAU);
-    ctx.strokeStyle = '#05080c';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#1a2530';
+    ctx.lineWidth = 3;
     ctx.stroke();
 
     /* ── Lampu di bingkai ── */
@@ -313,8 +315,8 @@ const Wheel = (() => {
       const on = (i + tPhase) % 3 !== 0;
       if (on) {
         const glow = ctx.createRadialGradient(bx, by, 0, bx, by, 17);
-        glow.addColorStop(0, 'rgba(255,245,215,0.9)');
-        glow.addColorStop(0.4, 'rgba(255,200,170,0.35)');
+        glow.addColorStop(0, 'rgba(255,248,225,0.8)');
+        glow.addColorStop(0.4, 'rgba(255,225,190,0.25)');
         glow.addColorStop(1, 'rgba(255,200,140,0)');
         ctx.beginPath();
         ctx.arc(bx, by, 17, 0, TAU);
@@ -323,7 +325,7 @@ const Wheel = (() => {
       }
       ctx.beginPath();
       ctx.arc(bx, by, 4.5, 0, TAU);
-      ctx.fillStyle = on ? '#fffaf0' : '#76664a';
+      ctx.fillStyle = on ? '#fff8e6' : '#6b6a60';
       ctx.fill();
     }
 
