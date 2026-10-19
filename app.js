@@ -468,6 +468,17 @@ function openBetModal(game) {
 
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add('show'));
+
+  /* Auto bet: isi otomatis dengan bet terakhir game ini (tetap bisa diganti,
+     game TIDAK langsung jalan — pemain harus tekan Mulai). */
+  const _last = _getLastBet(game);
+  if (_last > 0) {
+    const _inp = document.getElementById('betModalInput');
+    if (_inp) {
+      _inp.value = Math.max(1, Math.min(_last, currentToken.balance, getMaxBet()));
+      onModalBetInput();
+    }
+  }
   /* FIX: jangan auto-focus input -> kalau di-focus, keyboard mobile
      langsung muncul dan nutupin tombol shortcut (10/25/50/100/½).
      User sekarang bisa pilih shortcut dulu, baru ketik manual kalau perlu. */
@@ -561,7 +572,7 @@ function onModalBetInput() {
   } else if (_selectedGame === 'wheel') {
     preview.innerHTML = `
       Taruhan <strong>${val} bet</strong> (${formatRp(betToRp(val))})
-      <br>Menang: <em>tergantung segment (0.5× – 5×)</em>
+      <br>Menang: <em>tergantung segment (0× – 7×)</em>
     `;
   } else if (_selectedGame === 'hilo') {
     preview.innerHTML = `
@@ -579,6 +590,21 @@ function onModalBetInput() {
   preview.className = 'bet-modal-preview active';
 }
 
+/* ── Auto bet: simpan bet terakhir per game (fallback: bet terakhir game apa pun) ── */
+function _getLastBet(game) {
+  try {
+    const d = JSON.parse(localStorage.getItem('miwa_last_bet') || '{}');
+    return parseInt(d[game] || d._any) || 0;
+  } catch (e) { return 0; }
+}
+function _saveLastBet(game, val) {
+  try {
+    const d = JSON.parse(localStorage.getItem('miwa_last_bet') || '{}');
+    d[game] = val; d._any = val;
+    localStorage.setItem('miwa_last_bet', JSON.stringify(d));
+  } catch (e) {}
+}
+
 function submitBetModal() {
   const inp = document.getElementById('betModalInput');
   const val = parseInt(inp?.value) || 0;
@@ -587,6 +613,7 @@ function submitBetModal() {
   SFX.generic.click();
   closeBetModal();
   _currentBet = val;
+  _saveLastBet(_selectedGame, val);
   _launchGame();
 }
 
@@ -819,9 +846,11 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   area.id         = 'gameArea';
   area.className  = 'game-area';
 
-  const panelClass = isWin ? 'win-panel'  : 'lose-panel';
-  const emoji      = isWin ? '🎉'         : '💀';
-  const title      = isWin ? 'Menang!'    : 'Belum Beruntung';
+  /* Perubahan saldo 0 (balik modal) bukan "Menang" -> tampil "No Profit" */
+  const even       = balanceChange === 0;
+  const panelClass = even ? 'even-panel' : (isWin ? 'win-panel' : 'lose-panel');
+  const emoji      = even ? '🤝'          : (isWin ? '🎉' : '💀');
+  const title      = even ? 'No Profit'   : (isWin ? 'Menang!' : 'Belum Beruntung');
   const changeSign = balanceChange >= 0 ? '+' : '−';
   const changeAbs  = Math.abs(balanceChange);
 
@@ -842,11 +871,11 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
   area.innerHTML = `
     <div class="result-panel ${panelClass}">
       <span class="result-emoji">${emoji}</span>
-      <div class="result-badge ${isWin ? 'win' : 'lose'}">${isWin ? '● WIN' : '● LOSE'}</div>
+      <div class="result-badge ${even ? 'even' : (isWin ? 'win' : 'lose')}">${even ? '● EVEN' : (isWin ? '● WIN' : '● LOSE')}</div>
       <div class="result-title">${title}</div>
 
-      <div class="result-balance-change ${isWin ? 'win' : 'lose'}">
-        ${changeSign} ${changeAbs} bet
+      <div class="result-balance-change ${even ? 'even' : (isWin ? 'win' : 'lose')}">
+        ${even ? '' : changeSign + ' '}${changeAbs} bet
         <span class="result-balance-change-rp">(${formatRp(betToRp(changeAbs))})</span>
       </div>
 
@@ -857,7 +886,7 @@ function showResultInline(isWin, moneyWon, balanceChange, newBalance, saveOk) {
       </div>
 
       <div class="result-desc">
-        ${isWin ? 'Saldo token bertambah!' : 'Lebih beruntung di ronde berikutnya.'}
+        ${even ? 'Modal kembali, saldo tidak berubah.' : (isWin ? 'Saldo token bertambah!' : 'Lebih beruntung di ronde berikutnya.')}
       </div>
 
       <div class="result-meta">${saveNote}</div>

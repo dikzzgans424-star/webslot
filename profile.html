@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profil — Miwa Gacha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .pf-card { background: linear-gradient(165deg, rgba(28,28,38,0.62) 0%, rgba(14,14,20,0.7) 100%);
+      -webkit-backdrop-filter: blur(22px) saturate(130%); backdrop-filter: blur(22px) saturate(130%);
+      border: 1px solid rgba(255,255,255,0.09); border-radius: 24px; padding: 22px; margin-bottom: 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 18px 46px rgba(6,7,12,0.45); }
+    .pf-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 12px; display: block; }
+    .pf-token-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .pf-token { font-family: monospace; font-size: 15px; letter-spacing: 1px; color: var(--text-primary); word-break: break-all; }
+    .pf-badge { display: inline-flex; padding: 4px 14px; border-radius: 99px; font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; }
+    .pf-badge.prem { background: rgba(212,175,90,0.15); color: var(--gold-light); border: 1px solid rgba(212,175,90,0.35); }
+    .pf-badge.norm { background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-mid); }
+    .pf-balance { font-family: 'Cinzel','DM Serif Display',serif; font-weight: 900; font-size: 40px; color: var(--gold-light); line-height: 1.1; margin: 6px 0 2px; }
+    .pf-balance small { font-size: 16px; color: var(--gold-dim); letter-spacing: 2px; }
+    .pf-rp { color: var(--text-secondary); font-size: 14px; }
+    .pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .pf-stat { background: rgba(0,0,0,0.28); border: 1px solid var(--border-soft); border-radius: 16px; padding: 14px; }
+    .pf-stat span { display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; font-weight: 700; }
+    .pf-stat strong { font-size: 20px; color: var(--text-primary); }
+    .pf-stat strong.pos { color: var(--win-green); } .pf-stat strong.neg { color: var(--lose-red); }
+    .pf-games { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pf-games th { text-align: right; font-size: 10px; letter-spacing: 1.5px; color: var(--text-muted); text-transform: uppercase; padding: 0 0 8px; }
+    .pf-games th:first-child, .pf-games td:first-child { text-align: left; }
+    .pf-games td { text-align: right; padding: 9px 0; border-top: 1px solid var(--border-soft); color: var(--text-secondary); }
+    .pf-games td:first-child { color: var(--text-primary); }
+    .pf-hist-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
+    .pf-hist-row:first-of-type { border-top: 0; }
+    .pf-hist-game { color: var(--text-primary); }
+    .pf-hist-meta { color: var(--text-muted); font-size: 11px; }
+    .pf-hist-chg { font-weight: 800; white-space: nowrap; }
+    .pf-hist-chg.win { color: var(--win-green); } .pf-hist-chg.lose { color: var(--lose-red); } .pf-hist-chg.even { color: var(--gold); }
+    .pf-empty, .pf-msg { text-align: center; color: var(--text-muted); font-size: 13px; padding: 10px 0; }
+    .pf-msg.err { color: var(--lose-red); }
+    .pf-more { width: 100%; margin-top: 10px; padding: 11px; border-radius: 12px; border: 1px solid var(--border-mid); background: transparent; color: var(--text-secondary); font-weight: 700; cursor: pointer; font-family: inherit; }
+    .pf-actions { display: flex; flex-direction: column; gap: 10px; }
+    .pf-input-row { display: flex; gap: 8px; }
+    .pf-input-row input { flex: 1; min-width: 0; padding: 14px; border-radius: 14px; border: 1px solid var(--border-mid); background: rgba(0,0,0,0.35); color: var(--text-primary); font-family: monospace; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
+    .pf-btn { padding: 0 20px; border: 0; border-radius: 14px; font-weight: 800; letter-spacing: 1.5px; cursor: pointer; color: #0c0c0e; background: linear-gradient(135deg, var(--gold-light), var(--gold)); font-family: 'Syne', sans-serif; }
+    a.pf-link { display: block; text-align: center; text-decoration: none; padding: 15px; border-radius: 16px; font-weight: 800; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; font-family: 'Syne', sans-serif; }
+    a.pf-link.main { color: #0c0c0e; background: linear-gradient(135deg, var(--gold-light), var(--gold)); }
+    a.pf-link.ghost { color: var(--text-secondary); border: 1px solid var(--border-mid); }
+  </style>
+</head>
+<body class="theme-olympus">
+<div class="container">
+
+  <div class="header-card">
+    <div class="logo-wrap"><img src="https://c.termai.cc/i149/VfDyg2.jpeg" alt="Miwa Gacha" class="logo-img"></div>
+    <h1>MIWA GACHA</h1>
+    <p class="tagline">Profil Pemain</p>
+  </div>
+
+  <div id="pfLogin" class="pf-card" style="display:none">
+    <span class="pf-label">Masukkan Token</span>
+    <form id="pfForm" class="pf-input-row" autocomplete="off">
+      <input id="pfInput" placeholder="Token kamu" maxlength="64" required>
+      <button class="pf-btn" type="submit">CEK</button>
+    </form>
+    <div id="pfLoginMsg" class="pf-msg"></div>
+  </div>
+
+  <div id="pfLoading" class="pf-card pf-msg">Memuat profil…</div>
+
+  <div id="pfContent" style="display:none">
+    <div class="pf-card">
+      <div class="pf-token-row">
+        <div><span class="pf-label" style="margin-bottom:6px">Token</span><div class="pf-token" id="pfToken"></div></div>
+        <span class="pf-badge" id="pfBadge"></span>
+      </div>
+      <span class="pf-label" style="margin-top:20px;margin-bottom:0">Saldo</span>
+      <div class="pf-balance"><span id="pfBal"></span> <small>BET</small></div>
+      <div class="pf-rp" id="pfRp"></div>
+    </div>
+
+    <div class="pf-card">
+      <span class="pf-label">Statistik</span>
+      <div class="pf-grid" id="pfStats"></div>
+    </div>
+
+    <div class="pf-card">
+      <span class="pf-label">Per Game</span>
+      <table class="pf-games" id="pfGames"></table>
+    </div>
+
+    <div class="pf-card">
+      <span class="pf-label">Riwayat</span>
+      <div id="pfHist"></div>
+      <button class="pf-more" id="pfMore" style="display:none">Tampilkan lebih banyak</button>
+    </div>
+
+    <div class="pf-actions">
+      <a class="pf-link main" href="/">🎮 &nbsp;Main Sekarang</a>
+      <a class="pf-link ghost" href="#" id="pfSwitch">Ganti Token</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const LABELS = {
+    reelsgird: '🎰 Reels', roulette: '🎡 Roulette', coinflip: '🪙 Coinflip', horserace: '🐎 Horse Race',
+    airplane: '✈️ Airplane', blackjack: '🃏 Blackjack', plinko: '🔴 Plinko', mines: '💣 Mines',
+    wheel: '🎯 Wheel', hilo: '🔮 Hi-Lo', deposit: '⬇ Deposit', withdraw: '⬆ Withdraw'
+  };
+  const $ = id => document.getElementById(id);
+  const fmt = n => Number(n).toLocaleString('id-ID');
+  const rp  = bet => 'Rp ' + fmt(bet * 1000);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let history = [], shown = 0;
+  const PAGE = 15;
+
+  function getSavedToken() {
+    const q = new URLSearchParams(location.search).get('token');
+    if (q) return q.trim().toUpperCase();
+    try { return (localStorage.getItem('miwa_token') || '').trim().toUpperCase(); } catch (e) { return ''; }
+  }
+
+  async function load(token) {
+    $('pfLoading').style.display = '';
+    $('pfLogin').style.display = 'none';
+    $('pfContent').style.display = 'none';
+    try {
+      const r = await fetch('/api/profile?token=' + encodeURIComponent(token));
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'Gagal memuat profil');
+      render(d);
+    } catch (e) {
+      $('pfLoading').style.display = 'none';
+      $('pfLogin').style.display = '';
+      $('pfLoginMsg').textContent = '❌ ' + e.message;
+      $('pfLoginMsg').className = 'pf-msg err';
+    }
+  }
+
+  function render(d) {
+    $('pfLoading').style.display = 'none';
+    $('pfContent').style.display = '';
+    $('pfToken').textContent = d.token;
+    $('pfBadge').textContent = d.isPremium ? '★ Premium' : 'Normal';
+    $('pfBadge').className = 'pf-badge ' + (d.isPremium ? 'prem' : 'norm');
+    $('pfBal').textContent = fmt(d.balance);
+    $('pfRp').textContent = rp(d.balance);
+
+    history = (d.history || []).slice().sort((a, b) => (b.at || 0) - (a.at || 0));
+    const plays = history.filter(h => h.game !== 'deposit' && h.game !== 'withdraw');
+    const wins = plays.filter(h => h.change > 0);
+    const losses = plays.filter(h => h.change < 0);
+    const even = plays.length - wins.length - losses.length;
+    const net = plays.reduce((a, h) => a + (h.change || 0), 0);
+    const best = wins.reduce((m, h) => Math.max(m, h.change), 0);
+    const rate = plays.length ? Math.round(wins.length / plays.length * 100) : 0;
+    const stat = (l, v, c) => `<div class="pf-stat"><span>${l}</span><strong class="${c || ''}">${v}</strong></div>`;
+    $('pfStats').innerHTML =
+      stat('Total Main', fmt(plays.length)) +
+      stat('Win Rate', rate + '%') +
+      stat('Menang', fmt(wins.length), 'pos') +
+      stat('Kalah', fmt(losses.length), 'neg') +
+      stat('Net Profit', (net > 0 ? '+' : net < 0 ? '−' : '') + fmt(Math.abs(net)) + ' bet', net > 0 ? 'pos' : net < 0 ? 'neg' : '') +
+      stat('Kemenangan Terbesar', best ? '+' + fmt(best) + ' bet' : '—', best ? 'pos' : '');
+
+    const per = {};
+    plays.forEach(h => {
+      const g = per[h.game] || (per[h.game] = { n: 0, w: 0, net: 0 });
+      g.n++; if (h.change > 0) g.w++; g.net += h.change || 0;
+    });
+    const rows = Object.keys(per).sort((a, b) => per[b].n - per[a].n).map(k => {
+      const g = per[k];
+      const cls = g.net > 0 ? 'color:var(--win-green)' : g.net < 0 ? 'color:var(--lose-red)' : '';
+      return `<tr><td>${LABELS[k] || esc(k)}</td><td>${g.n}</td><td>${Math.round(g.w / g.n * 100)}%</td><td style="${cls}">${g.net > 0 ? '+' : g.net < 0 ? '−' : ''}${fmt(Math.abs(g.net))}</td></tr>`;
+    }).join('');
+    $('pfGames').innerHTML = rows
+      ? `<tr><th>Game</th><th>Main</th><th>Win</th><th>Net (bet)</th></tr>${rows}`
+      : `<tr><td class="pf-empty" colspan="4">Belum ada data</td></tr>`;
+
+    shown = 0; $('pfHist').innerHTML = '';
+    more();
+  }
+
+  function more() {
+    const slice = history.slice(shown, shown + PAGE);
+    if (!history.length) $('pfHist').innerHTML = '<div class="pf-empty">Belum ada riwayat</div>';
+    $('pfHist').insertAdjacentHTML('beforeend', slice.map(h => {
+      const c = h.change || 0;
+      const cls = c > 0 ? 'win' : c < 0 ? 'lose' : 'even';
+      const txt = c > 0 ? '▲ +' + fmt(c) : c < 0 ? '▼ −' + fmt(Math.abs(c)) : 'No Profit';
+      const t = h.at ? new Date(h.at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      return `<div class="pf-hist-row"><div><div class="pf-hist-game">${LABELS[h.game] || esc(h.game)}</div><div class="pf-hist-meta">Bet ${fmt(h.bet)} · ${t}</div></div><div class="pf-hist-chg ${cls}">${txt}${c === 0 ? '' : ' bet'}</div></div>`;
+    }).join(''));
+    shown += slice.length;
+    $('pfMore').style.display = shown < history.length ? '' : 'none';
+  }
+
+  $('pfMore').addEventListener('click', more);
+  $('pfForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = $('pfInput').value.trim().toUpperCase();
+    if (t) load(t);
+  });
+  $('pfSwitch').addEventListener('click', e => {
+    e.preventDefault();
+    $('pfContent').style.display = 'none';
+    $('pfLogin').style.display = '';
+    $('pfLoginMsg').textContent = '';
+    $('pfInput').value = '';
+  });
+
+  const saved = getSavedToken();
+  if (saved) load(saved);
+  else { $('pfLoading').style.display = 'none'; $('pfLogin').style.display = ''; }
+})();
+</script>
+</body>
+</html>

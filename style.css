@@ -3302,3 +3302,8 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   background: linear-gradient(135deg, #5a5a60, #3e3e44);
   color: #a0a0a8; box-shadow: none; opacity: 0.85; cursor: not-allowed;
 }
+
+/* ── Hasil "No Profit" (balik modal) ── */
+.result-panel.even-panel { border-color: rgba(212,175,90,0.2); box-shadow: 0 0 40px rgba(212,175,90,0.05); }
+.result-badge.even { background: rgba(212,175,90,0.12); color: var(--gold); border: 1px solid rgba(212,175,90,0.25); }
+.result-balance-change.even { color: var(--gold); }
