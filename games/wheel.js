@@ -11,24 +11,23 @@
    - 3 pita kelihatan sekaligus (tengah = aktif, atas/bawah = samar)
 
    Segments (8 pita, mirip Big Bass Wheel):
-     ZONK 0× | 1× | ZONK 0× | 3× | 1× | 5× JACKPOT | ZONK 0× | 1×
+     ZONK | 1× | 3× | 1.5× | 7× JACKPOT | 3.5× | 4.7×
    Warna authentic arcade: biru gelap, biru terang, kuning, oranye/coklat
 ══════════════════════════════════════ */
 const Wheel = (() => {
 
   /* ── Pita (bands) — urutan barrel dari atas ke bawah ── */
   const SEGMENTS = [
-    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
-    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
-    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
-    { mult: 3,   label: '3×',       sub: 'WIN',         color: '#c47a00', light: '#f5a800',   textColor: '#fff', subColor: '#ffe085' },
-    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#1a3a6e', light: '#2a5aaa',   textColor: '#fff', subColor: '#a8c8ff' },
-    { mult: 5,   label: '5×',       sub: 'JACKPOT 🏆',  color: '#8a1a00', light: '#d44000',   textColor: '#ffe85c', subColor: '#ffb830' },
-    { mult: 0,   label: 'ZONK', sub: '0×',         color: '#1a1a1a', light: '#2e2e2e',   textColor: '#888', subColor: '#555' },
-    { mult: 1,   label: '1×',       sub: 'WIN',         color: '#0e5a2e', light: '#1a9a50',   textColor: '#fff', subColor: '#80ffb8' },
+    { mult: 0,   label: 'ZONK',    st: 'bust',    weight: 0 },
+    { mult: 1,   label: '1×',      st: 'win1',    weight: 30 },
+    { mult: 3,   label: '3×',      st: 'win3',    weight: 18 },
+    { mult: 1.5, label: '1.5×',    st: 'mint',    weight: 28 },
+    { mult: 7,   label: 'JACKPOT', st: 'jackpot', weight: 4 },
+    { mult: 3.5, label: '3.5×',    st: 'sky',     weight: 12 },
+    { mult: 4.7, label: '4.7×',    st: 'lav',     weight: 8 },
   ];
   const N        = SEGMENTS.length;
-  const MAX_MULT = 5; // HARUS sama dengan MAX_GAME_MULTIPLIER.wheel di app.js & gacha-update.js
+  const MAX_MULT = 7; // HARUS sama dengan MAX_GAME_MULTIPLIER.wheel di app.js & gacha-update.js
 
   /* ── Warna chrome ── */
   const C = {
@@ -58,15 +57,13 @@ const Wheel = (() => {
   const SEG_STYLE = {
     bust:    { a: '#6f6288', b: '#4d4468', text: '#e4dcf2' },   /* ungu abu lembut */
     win1:    { a: '#fbe3a1', b: '#f1cd78', text: '#7a5416' },   /* krem emas */
+    mint:    { a: '#bfe9cf', b: '#92d6ae', text: '#1f5a3c' },   /* mint */
     win3:    { a: '#f9c38f', b: '#f0a266', text: '#7a3d14' },   /* peach */
+    sky:     { a: '#add7f3', b: '#80b9e4', text: '#17456b' },   /* biru langit */
+    lav:     { a: '#e6b9ec', b: '#cd92d8', text: '#5a1f66' },   /* lavender */
     jackpot: { a: '#f59a92', b: '#e0706a', text: '#ffffff' },   /* coral */
   };
-  function styleOf(seg) {
-    if (seg.mult === 0) return SEG_STYLE.bust;
-    if (seg.mult >= 5)  return SEG_STYLE.jackpot;
-    if (seg.mult >= 3)  return SEG_STYLE.win3;
-    return SEG_STYLE.win1;
-  }
+  function styleOf(seg) { return SEG_STYLE[seg.st]; }
 
   /* ── HTML: roda tegak (fortune wheel) dengan lampu & jarum emas ── */
   function render() {
@@ -249,7 +246,7 @@ const Wheel = (() => {
 
     /* JACKPOT: garis putih tebal bercahaya */
     for (let i = 0; i < N; i++) {
-      if (SEGMENTS[i].mult < 5) continue;
+      if (SEGMENTS[i].mult < 7) continue;
       const mid = i * SEG + rot - Math.PI / 2;
       ctx.save();
       ctx.beginPath();
@@ -270,19 +267,24 @@ const Wheel = (() => {
       const seg = SEGMENTS[i];
       const st  = styleOf(seg);
       const mid = i * SEG + rot - Math.PI / 2;
-      const label = seg.mult === 0 ? 'ZONK' : seg.mult >= 5 ? 'JACKPOT' : seg.mult + '×';
+      const isJP = seg.mult >= 7;
+      const label = seg.label;
       ctx.save();
       ctx.translate(CX, CY);
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      const fs = seg.mult === 0 ? R * 0.15 : seg.mult >= 5 ? R * 0.125 : R * 0.2;
+      const fs = seg.mult === 0 ? R * 0.15 : isJP ? R * 0.1 : R * 0.17;
       ctx.font = `400 ${Math.round(fs)}px 'DM Serif Display', serif`;
       ctx.fillStyle = st.text;
       ctx.shadowColor = 'rgba(0,0,0,0.18)';
       ctx.shadowBlur = 3;
       ctx.shadowOffsetY = 1;
       ctx.fillText(label, rFace * 0.84, 0);
+      if (isJP) {
+        ctx.font = `400 ${Math.round(R * 0.17)}px 'DM Serif Display', serif`;
+        ctx.fillText('7×', rFace * 0.46, 0);
+      }
       ctx.restore();
     }
 
@@ -449,9 +451,14 @@ const Wheel = (() => {
     /* Tentukan target pita dari predetermined result */
     const isWin    = _gacha.result === 'win';
     const candidates = SEGMENTS
-      .map((s, i) => ({ i, mult: s.mult }))
+      .map((s, i) => ({ i, mult: s.mult, weight: s.weight }))
       .filter(s => isWin ? s.mult >= 1 : s.mult < 1);
-    const picked    = candidates[Math.floor(Math.random() * candidates.length)];
+    /* Pilih segmen berbobot: multiplier kecil lebih sering, jackpot paling jarang.
+       (lose → cuma ZONK) */
+    const totalW = candidates.reduce((a, c) => a + (c.weight || 1), 0);
+    let roll = Math.random() * totalW;
+    let picked = candidates[candidates.length - 1];
+    for (const c of candidates) { roll -= (c.weight || 1); if (roll <= 0) { picked = c; break; } }
     const targetIdx = picked.i;
     const seg       = SEGMENTS[targetIdx];
 
@@ -473,7 +480,7 @@ const Wheel = (() => {
     if (_done) return;
     _done = true;
 
-    const prize = actualWin ? Math.floor(_bet * Math.min(seg.mult, MAX_MULT) * 1000) : 0;
+    const prize = actualWin ? Math.round(_bet * Math.min(seg.mult, MAX_MULT) * 1000) : 0;
     /* prize = total yang diterima (termasuk bet kembali).
        onGameResult akan hitung balanceChange = (prize/1000) - bet,
        sama seperti pola airplane/mines. Pastikan kirim isWin=true

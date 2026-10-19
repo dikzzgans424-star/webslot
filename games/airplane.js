@@ -212,7 +212,7 @@ const Airplane = (() => {
   const _rp = n => 'Rp ' + n.toLocaleString('id-ID');
 
   function _updateButtons() {
-    if (_phase !== 'flying') return;
+    if (_phase !== 'flying' || _halfTaken) return;   // setelah 50% diambil, kedua tombol dikunci abu-abu
     const cb = document.getElementById('apCashBtn');
     const hb = document.getElementById('apHalfBtn');
     if (cb) cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">${_rp(_totalNow())}</span>`;
@@ -255,9 +255,16 @@ const Airplane = (() => {
       hb.classList.add('used');
       hb.innerHTML = `<span class="ap-cash-top">✓ 50% DIAMBIL</span><span class="ap-cash-amt">${_rp(_halfPrize)}</span>`;
     }
+    /* Tombol Cashout kiri juga ikut abu-abu & terkunci — tinggal tunggu pesawat jatuh */
+    const cb = document.getElementById('apCashBtn');
+    if (cb) {
+      cb.disabled = true;
+      cb.classList.remove('ap-btn-take');
+      cb.classList.add('ap-btn-half', 'used');
+      cb.innerHTML = `<span class="ap-cash-top">CASHOUT</span><span class="ap-cash-amt">terkunci</span>`;
+    }
     const st = document.getElementById('apStatus');
-    if (st) { st.textContent = `50% diambil ${_multiplier.toFixed(2)}× — ${_rp(_halfPrize)}. Sisanya terbang!`; st.style.color = '#4caf82'; }
-    _updateButtons();
+    if (st) { st.textContent = `50% diambil ${_multiplier.toFixed(2)}× — ${_rp(_halfPrize)}. Tunggu pesawat jatuh...`; st.style.color = '#4caf82'; }
   }
 
   function _doCashout() {
