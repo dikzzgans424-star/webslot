@@ -3120,3 +3120,142 @@ body.theme-olympus .token-game-btn.active {
 @media (max-width: 420px) {
   .sfx-toggle-btn { top: 4px; right: 0; width: 32px; height: 32px; font-size: 14px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   UPGRADE TAMPILAN v2 — lapisan override, logika game tidak disentuh.
+   Hapus blok ini kalau mau balik ke tampilan lama.
+══════════════════════════════════════════════════════════ */
+:root {
+  --gold-foil: linear-gradient(100deg, #8a6a2c 0%, #f6dd9a 28%, #c99a3f 52%, #fff0b8 74%, #b98a33 100%);
+  --felt:      #0f3b2e;
+  --ease-out:  cubic-bezier(.22,.8,.3,1);
+}
+
+/* Foto background: vignette lebih dalam biar kartu lebih kebaca */
+body.theme-olympus {
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% 0%, rgba(8,9,12,0.20) 0%, rgba(8,9,12,0.70) 100%),
+    linear-gradient(180deg, rgba(8,9,12,0.40) 0%, rgba(8,9,12,0.80) 100%),
+    url("https://cdn.jsdelivr.net/gh/dikzzgans424-star/CDN-Miwa-botz@main/uploads/1789308745052.jpg");
+}
+
+/* Header: wordmark emas foil + logo sebagai medali */
+.header-card h1 {
+  background: var(--gold-foil);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  font-size: 36px; letter-spacing: 5px;
+  filter: drop-shadow(0 2px 14px rgba(212,175,90,0.28));
+}
+.header-card .tagline { color: var(--gold-dim); letter-spacing: 4px; }
+.logo-wrap {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, rgba(246,221,154,0.30), rgba(15,59,46,0.85) 70%);
+  border: 1.5px solid rgba(246,221,154,0.55);
+  box-shadow: 0 0 0 5px rgba(212,175,90,0.08), 0 10px 30px rgba(0,0,0,0.5), inset 0 0 18px rgba(0,0,0,0.45);
+}
+.logo-wrap::after { border-radius: 50%; }
+
+/* Kartu: tepi atas bercahaya tipis, radius lebih rapi */
+body.theme-olympus .glass-card,
+body.theme-olympus .token-game-section,
+body.theme-olympus .token-history-section,
+body.theme-olympus .status-card {
+  border-radius: 24px;
+  border-color: rgba(246,221,154,0.12);
+  box-shadow:
+    0 1px 0 rgba(255,236,180,0.10) inset,
+    0 0 0 1px rgba(0,0,0,0.35),
+    0 22px 50px rgba(4,5,9,0.55);
+}
+
+/* Input token */
+.input-wrap input, #gachaId {
+  background: rgba(0,0,0,0.38);
+  border-radius: 14px;
+  letter-spacing: 1.5px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input-wrap input:focus, #gachaId:focus {
+  outline: none;
+  border-color: rgba(246,221,154,0.6);
+  box-shadow: 0 0 0 4px rgba(212,175,90,0.14);
+}
+
+/* Tombol utama: foil emas + kilau saat hover */
+#spinBtn, .back-dashboard-btn {
+  transition: transform .18s var(--ease-out), box-shadow .18s, filter .18s;
+}
+#spinBtn {
+  background: var(--gold-foil); background-size: 160% 100%;
+  box-shadow: 0 6px 20px rgba(212,175,90,0.28), inset 0 1px 0 rgba(255,255,255,0.45);
+}
+#spinBtn:hover { background-position: 100% 0; box-shadow: 0 10px 28px rgba(212,175,90,0.38), inset 0 1px 0 rgba(255,255,255,0.5); }
+
+/* Saldo: papan skor ala meja kasino */
+body.theme-olympus .token-balance-wrap {
+  background:
+    radial-gradient(ellipse 80% 120% at 50% 0%, rgba(246,221,154,0.16), transparent 70%),
+    linear-gradient(160deg, rgba(15,59,46,0.55), rgba(10,18,16,0.70));
+  border: 1px solid rgba(246,221,154,0.28);
+  border-radius: 22px;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.35), 0 8px 26px rgba(0,0,0,0.35);
+}
+.token-balance-value {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 22px rgba(246,221,154,0.35);
+}
+
+/* Grid game: tiap ubin punya warna aksen sendiri di tepi atas */
+.token-game-grid { gap: 12px; }
+.token-game-btn {
+  --accent: var(--gold);
+  position: relative; overflow: hidden;
+  border-radius: 18px; padding: 24px 12px 20px;
+  transition: transform .2s var(--ease-out), border-color .2s, box-shadow .2s, background .2s;
+}
+.token-game-btn::before {
+  content: ''; position: absolute; left: 14px; right: 14px; top: 0; height: 3px;
+  border-radius: 0 0 4px 4px; background: var(--accent); opacity: .75;
+  transition: opacity .2s, left .2s, right .2s;
+}
+.token-game-btn:hover::before, .token-game-btn.active::before { opacity: 1; left: 6px; right: 6px; }
+.token-game-btn:hover  { border-color: var(--accent); box-shadow: 0 10px 26px rgba(0,0,0,0.4); }
+.token-game-btn.active { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent), 0 10px 26px rgba(0,0,0,0.4); }
+.token-game-btn:nth-child(10n+1){ --accent:#e0b44c; }
+.token-game-btn:nth-child(10n+2){ --accent:#d1566a; }
+.token-game-btn:nth-child(10n+3){ --accent:#d8c27a; }
+.token-game-btn:nth-child(10n+4){ --accent:#6fa86a; }
+.token-game-btn:nth-child(10n+5){ --accent:#9a8ad6; }
+.token-game-btn:nth-child(10n+6){ --accent:#5aa7c7; }
+.token-game-btn:nth-child(10n+7){ --accent:#a779d6; }
+.token-game-btn:nth-child(10n+8){ --accent:#e08a4c; }
+.token-game-btn:nth-child(10n+9){ --accent:#6bb7d9; }
+.token-game-btn:nth-child(10n+10){ --accent:#d1566a; }
+
+/* Status & footer */
+.status-card { border-radius: 18px; }
+.footer { color: var(--text-muted); letter-spacing: 2px; }
+
+/* Aksesibilitas: fokus keyboard jelas, hormati reduced-motion */
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--gold-light); outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* Mobile */
+@media (max-width: 420px) {
+  body { padding: 20px 14px 48px; }
+  .header-card h1 { font-size: 30px; letter-spacing: 4px; }
+  .token-game-btn { padding: 20px 8px 16px; font-size: 14px; }
+}
+
+/* ── Ikon SVG pengganti emoji ── */
+.ico { display: inline-flex; align-items: center; justify-content: center; vertical-align: -0.2em; line-height: 1; }
+.ico-t { font-size: 0; width: 0; height: 0; overflow: hidden; display: inline-block; }
+.ico svg { width: 1.15em; height: 1.15em; display: block; }
+.logo-wrap .ico svg { width: 34px; height: 34px; color: var(--gold-light); filter: drop-shadow(0 2px 8px rgba(212,175,90,.45)); }
+.token-game-btn .ico svg { width: 30px; height: 30px; color: var(--accent, var(--gold)); }
+.sfx-toggle-btn .ico svg { width: 20px; height: 20px; }
