@@ -45,7 +45,7 @@ function getMaxBet() {
    - mines     : MULT_CAP = 15x */
 const MAX_GAME_MULTIPLIER = {
   reelsgird: 5.5,
-  roulette:  2,
+  roulette:  2.5,   /* hijau = 2.5x */
   coinflip:  2,
   horserace: 2,
   blackjack: 2,
