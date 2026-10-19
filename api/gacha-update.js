@@ -46,7 +46,7 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  22.22 * 0.95,
   plinko:    8,
   mines:     15,
-  wheel:     5,
+  wheel:     7,
   hilo:      10,
 };
 
