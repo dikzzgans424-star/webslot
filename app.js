@@ -52,7 +52,7 @@ const MAX_GAME_MULTIPLIER = {
   airplane:  22.22 * 0.95,
   plinko:    8,
   mines:     15,
-  wheel:     5,
+  wheel:     7,
   hilo:      10,
 };
 
@@ -343,7 +343,7 @@ function showTokenDashboard() {
     if (key === 'plinko')    return '0.5× – 8×';
     if (key === 'mines')     return 'Cashout × (s/d)';
     if (key === 'roulette')  return '2× / green 2.5×';
-    if (key === 'wheel')     return '0.5× – 5×';
+    if (key === 'wheel')     return '0× – 7×';
     if (key === 'hilo')      return 'Streak × (s/d 10×)';
     return GAME_MULTIPLIER[key] + '×';
   }
