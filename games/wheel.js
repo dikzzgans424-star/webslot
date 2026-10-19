@@ -106,7 +106,7 @@ const Wheel = (() => {
         width: 100%;
         max-width: 340px;
         margin: 4px auto 18px;
-        padding: 14px 8px 8px;
+        padding: 18px 0 0;
         border-radius: 22px;
         overflow: hidden;
         background:
@@ -128,8 +128,8 @@ const Wheel = (() => {
         text-align: center;
         font-family: 'Syne', sans-serif;
         font-weight: 900;
-        font-size: 30px;
-        letter-spacing: 2px;
+        font-size: 40px;
+        letter-spacing: 1px;
         line-height: 1;
         color: #fff;
         text-shadow: 0 3px 10px rgba(0,0,0,0.5);
@@ -137,14 +137,14 @@ const Wheel = (() => {
       }
       .wf-title small {
         display: block;
-        font-size: 15px;
+        font-size: 26px;
         font-weight: 700;
         letter-spacing: 1px;
-        color: #3fb6ee;
+        color: #2fa9e6;
         text-shadow: none;
         margin-top: 2px;
       }
-      .wf-canvas-box { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+      .wf-canvas-box { position: relative; width: 100%; aspect-ratio: 1 / 0.82; }
       .wf-canvas-box #wheelCanvas { width: 100%; height: 100%; display: block; filter: none; }
       .wf-stage.is-spinning { box-shadow: 0 14px 40px rgba(0,0,0,0.55), 0 0 36px rgba(255,200,80,0.35), inset 0 0 40px rgba(0,0,0,0.35); }
     `;
@@ -162,7 +162,7 @@ const Wheel = (() => {
     canvas = document.getElementById('wheelCanvas');
     const box = canvas.parentElement;
     W = Math.round(box.clientWidth || 300);
-    H = W;
+    H = Math.round(W * 0.82);
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     canvas.width  = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
@@ -181,78 +181,89 @@ const Wheel = (() => {
     const SEG = TAU / N;
     ctx.clearRect(0, 0, W, H);
 
-    const CX = W / 2, CY = H / 2 + 6;
-    const R  = W / 2 - 12;          // radius luar bingkai
-    const rFace = R * 0.86;         // radius muka roda
+    /* Roda raksasa — hanya bagian atasnya yang terlihat (seperti referensi) */
+    const R  = W * 0.68;
+    const CX = W / 2;
+    const CY = H * 0.2 + R;
+    const rFace = R * 0.88;
 
-    /* Bayangan */
-    ctx.beginPath();
-    ctx.arc(CX, CY + 6, R, 0, TAU);
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fill();
+    /* ── Sorot cahaya ke atas ── */
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = -3; k <= 3; k++) {
+      const ang = -Math.PI / 2 + k * 0.22;
+      const g = ctx.createLinearGradient(CX, CY - R, CX + Math.cos(ang) * W, CY - R + Math.sin(ang) * W);
+      g.addColorStop(0, 'rgba(120,210,255,0.16)');
+      g.addColorStop(1, 'rgba(120,210,255,0)');
+      ctx.beginPath();
+      ctx.moveTo(CX - 40, CY - R + 8);
+      ctx.lineTo(CX + 40, CY - R + 8);
+      ctx.lineTo(CX + Math.cos(ang + 0.07) * W * 1.2, CY - R + Math.sin(ang + 0.07) * W * 1.2);
+      ctx.lineTo(CX + Math.cos(ang - 0.07) * W * 1.2, CY - R + Math.sin(ang - 0.07) * W * 1.2);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
+    ctx.restore();
 
-    /* Bingkai gelap */
-    const frame = ctx.createRadialGradient(CX, CY, R * 0.8, CX, CY, R);
-    frame.addColorStop(0, '#1b2733');
-    frame.addColorStop(0.7, '#0b121a');
-    frame.addColorStop(1, '#2b3a49');
+    /* ── Bingkai gelap ── */
+    const frame = ctx.createRadialGradient(CX, CY, R * 0.85, CX, CY, R);
+    frame.addColorStop(0, '#16212c');
+    frame.addColorStop(0.75, '#070b10');
+    frame.addColorStop(1, '#2a3846');
     ctx.beginPath();
     ctx.arc(CX, CY, R, 0, TAU);
     ctx.fillStyle = frame;
     ctx.fill();
-    ctx.strokeStyle = '#4a5d70';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#3d4f61';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     /* ── Segmen ── */
     for (let i = 0; i < N; i++) {
-      const seg = SEGMENTS[i];
-      const st  = styleOf(seg);
+      const st  = styleOf(SEGMENTS[i]);
       const mid = i * SEG + rot - Math.PI / 2;
-      const a0  = mid - SEG / 2, a1 = mid + SEG / 2;
-
-      const g = ctx.createRadialGradient(CX, CY, rFace * 0.15, CX, CY, rFace);
+      const g = ctx.createRadialGradient(CX, CY, rFace * 0.3, CX, CY, rFace);
       g.addColorStop(0, st.b);
       g.addColorStop(1, st.a);
       ctx.beginPath();
       ctx.moveTo(CX, CY);
-      ctx.arc(CX, CY, rFace, a0, a1);
+      ctx.arc(CX, CY, rFace, mid - SEG / 2, mid + SEG / 2);
       ctx.closePath();
       ctx.fillStyle = g;
       ctx.fill();
     }
 
-    /* Garis pemisah segmen */
+    /* Garis pemisah gelap */
     for (let i = 0; i < N; i++) {
       const a = i * SEG + rot - Math.PI / 2 - SEG / 2;
       ctx.beginPath();
-      ctx.moveTo(CX + Math.cos(a) * R * 0.2, CY + Math.sin(a) * R * 0.2);
+      ctx.moveTo(CX + Math.cos(a) * rFace * 0.3, CY + Math.sin(a) * rFace * 0.3);
       ctx.lineTo(CX + Math.cos(a) * rFace, CY + Math.sin(a) * rFace);
-      ctx.strokeStyle = 'rgba(60,20,0,0.55)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(70,30,0,0.6)';
+      ctx.lineWidth = 3;
       ctx.stroke();
     }
 
-    /* Highlight segmen JACKPOT: garis putih tebal bercahaya */
+    /* JACKPOT: garis putih tebal bercahaya */
     for (let i = 0; i < N; i++) {
       if (SEGMENTS[i].mult < 5) continue;
       const mid = i * SEG + rot - Math.PI / 2;
-      const a0 = mid - SEG / 2, a1 = mid + SEG / 2;
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(CX + Math.cos(mid) * rFace * 0.2, CY + Math.sin(mid) * rFace * 0.2);
-      ctx.arc(CX, CY, rFace * 0.97, a0, a1);
+      ctx.moveTo(CX + Math.cos(mid) * rFace * 0.34, CY + Math.sin(mid) * rFace * 0.34);
+      ctx.arc(CX, CY, rFace * 0.97, mid - SEG / 2 + 0.012, mid + SEG / 2 - 0.012);
       ctx.closePath();
-      ctx.shadowColor = 'rgba(255,255,255,0.9)';
-      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(255,255,255,0.95)';
+      ctx.shadowBlur = 12;
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3.5;
       ctx.lineJoin = 'round';
       ctx.stroke();
       ctx.restore();
     }
 
-    /* Label radial */
+    /* Label radial besar */
     for (let i = 0; i < N; i++) {
       const seg = SEGMENTS[i];
       const st  = styleOf(seg);
@@ -263,27 +274,24 @@ const Wheel = (() => {
       ctx.rotate(mid);
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
-      const fs = seg.mult === 0 ? R * 0.078 : seg.mult >= 5 ? R * 0.09 : R * 0.18;
+      const fs = seg.mult === 0 ? R * 0.082 : seg.mult >= 5 ? R * 0.105 : R * 0.2;
       ctx.font = `900 ${Math.round(fs)}px Syne, sans-serif`;
       ctx.fillStyle = st.text;
-      ctx.shadowColor = seg.mult === 0 ? 'rgba(0,0,0,0.6)' : 'rgba(255,240,200,0.35)';
-      ctx.shadowBlur = 3;
-      ctx.fillText(label, rFace * 0.92, 0);
-      if (seg.mult >= 1 && seg.mult < 5) {
-        ctx.font = `800 ${Math.round(R * 0.07)}px Syne, sans-serif`;
-        ctx.fillText('WIN', rFace * 0.92, R * 0.14);
-      }
+      ctx.shadowColor = 'rgba(0,0,0,0.45)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
+      ctx.fillText(label, rFace * 0.84, 0);
       ctx.restore();
     }
 
-    /* Pasak emas di tiap batas segmen */
+    /* Pasak emas di batas segmen */
     for (let i = 0; i < N; i++) {
       const a = i * SEG + rot - Math.PI / 2 - SEG / 2;
-      const px = CX + Math.cos(a) * rFace * 0.95, py = CY + Math.sin(a) * rFace * 0.95;
-      const pg = ctx.createRadialGradient(px - 1, py - 1, 0.5, px, py, R * 0.035);
+      const px = CX + Math.cos(a) * rFace * 0.955, py = CY + Math.sin(a) * rFace * 0.955;
+      const pg = ctx.createRadialGradient(px - 1, py - 1, 0.5, px, py, 7);
       pg.addColorStop(0, '#fff6c8'); pg.addColorStop(1, '#c8921a');
       ctx.beginPath();
-      ctx.arc(px, py, R * 0.03, 0, TAU);
+      ctx.arc(px, py, 5.5, 0, TAU);
       ctx.fillStyle = pg;
       ctx.fill();
     }
@@ -291,72 +299,59 @@ const Wheel = (() => {
     /* Cincin muka roda */
     ctx.beginPath();
     ctx.arc(CX, CY, rFace, 0, TAU);
-    ctx.strokeStyle = '#0a0f14';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#05080c';
+    ctx.lineWidth = 4;
     ctx.stroke();
 
-    /* ── Lampu di bingkai (berkedip bergantian) ── */
-    const bulbs = 20;
-    const tPhase = Math.floor((now || 0) / 260);
+    /* ── Lampu di bingkai ── */
+    const bulbs = 44;
+    const tPhase = Math.floor((now || 0) / 280);
     for (let i = 0; i < bulbs; i++) {
-      const a = (i / bulbs) * TAU - Math.PI / 2;
-      const bx = CX + Math.cos(a) * R * 0.93, by = CY + Math.sin(a) * R * 0.93;
-      const on = (i + tPhase) % 2 === 0;
+      const a = (i / bulbs) * TAU - Math.PI / 2 + rot * 0;
+      const bx = CX + Math.cos(a) * R * 0.945, by = CY + Math.sin(a) * R * 0.945;
+      if (by > H + 20) continue;
+      const on = (i + tPhase) % 3 !== 0;
       if (on) {
-        const glow = ctx.createRadialGradient(bx, by, 0, bx, by, R * 0.1);
-        glow.addColorStop(0, 'rgba(255,240,190,0.85)');
-        glow.addColorStop(1, 'rgba(255,200,90,0)');
+        const glow = ctx.createRadialGradient(bx, by, 0, bx, by, 17);
+        glow.addColorStop(0, 'rgba(255,245,215,0.9)');
+        glow.addColorStop(0.4, 'rgba(255,200,170,0.35)');
+        glow.addColorStop(1, 'rgba(255,200,140,0)');
         ctx.beginPath();
-        ctx.arc(bx, by, R * 0.1, 0, TAU);
+        ctx.arc(bx, by, 17, 0, TAU);
         ctx.fillStyle = glow;
         ctx.fill();
       }
       ctx.beginPath();
-      ctx.arc(bx, by, R * 0.028, 0, TAU);
-      ctx.fillStyle = on ? '#fff8dc' : '#7a6a48';
+      ctx.arc(bx, by, 4.5, 0, TAU);
+      ctx.fillStyle = on ? '#fffaf0' : '#76664a';
       ctx.fill();
     }
 
-    /* ── Hub tengah emas ── */
-    const hr = R * 0.17;
-    const hg = ctx.createRadialGradient(CX - hr * 0.3, CY - hr * 0.3, 1, CX, CY, hr);
-    hg.addColorStop(0, '#fff2b0'); hg.addColorStop(0.55, '#e0a82a'); hg.addColorStop(1, '#8a5a10');
-    ctx.beginPath();
-    ctx.arc(CX, CY, hr, 0, TAU);
-    ctx.fillStyle = hg;
-    ctx.fill();
-    ctx.strokeStyle = '#5a3a08';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(CX, CY, hr * 0.45, 0, TAU);
-    ctx.fillStyle = '#7a4c0c';
-    ctx.fill();
-
-    /* ── Jarum emas di atas (teardrop, mengayun saat melewati pasak) ── */
+    /* ── Jarum emas teardrop di puncak (menunjuk ke bawah) ── */
     ctx.save();
-    ctx.translate(CX, CY - R * 0.9);
+    const tipY = CY - rFace * 0.9;
+    const ph = W * 0.12, pw = W * 0.04;
+    ctx.translate(CX, tipY - ph);
     ctx.rotate(_pointerKick);
-    const ph = R * 0.24, pw = R * 0.085;
     ctx.beginPath();
     ctx.moveTo(0, ph);
-    ctx.bezierCurveTo(pw * 1.2, ph * 0.35, pw * 1.3, -pw * 0.6, 0, -pw * 1.1);
-    ctx.bezierCurveTo(-pw * 1.3, -pw * 0.6, -pw * 1.2, ph * 0.35, 0, ph);
+    ctx.bezierCurveTo(pw * 1.25, ph * 0.35, pw * 1.35, -pw * 0.7, 0, -pw * 1.15);
+    ctx.bezierCurveTo(-pw * 1.35, -pw * 0.7, -pw * 1.25, ph * 0.35, 0, ph);
     ctx.closePath();
     const pgd = ctx.createLinearGradient(-pw, 0, pw, 0);
-    pgd.addColorStop(0, '#f6c64a'); pgd.addColorStop(0.5, '#fff0a8'); pgd.addColorStop(1, '#d9951a');
+    pgd.addColorStop(0, '#f2b83a'); pgd.addColorStop(0.5, '#fff0a8'); pgd.addColorStop(1, '#d9951a');
     ctx.shadowColor = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur = 6;
-    ctx.shadowOffsetY = 2;
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
     ctx.fillStyle = pgd;
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = '#8a5a10';
+    ctx.strokeStyle = '#a56d12';
     ctx.lineWidth = 1.2;
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(0, 0, pw * 0.35, 0, TAU);
-    ctx.fillStyle = '#a56d12';
+    ctx.arc(0, ph - pw * 0.4, pw * 0.3, 0, TAU);
+    ctx.fillStyle = '#fff6c8';
     ctx.fill();
     ctx.restore();
   }
