@@ -31,75 +31,369 @@
     .warn { font-size: 11px; color: var(--mu); margin-top: 6px; }
     .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .btn { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--tx); font: 700 11px 'Syne'; cursor: pointer; }
+  
+    .chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+    .chip { padding:6px 12px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--mu); font:700 11px 'Syne'; cursor:pointer; }
+    .chip.on { color:#0c0c0e; background:var(--gl); border-color:transparent; }
+    input, select, textarea { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:rgba(0,0,0,.35); color:var(--tx); font:500 13px 'Syne'; outline:none; }
+    input:focus, select:focus, textarea:focus { border-color:var(--gold); }
+    .btn.gold { background:linear-gradient(135deg,var(--gl),var(--gold)); color:#0c0c0e; border-color:transparent; }
+    .btn.red { border-color:var(--r); color:var(--r); } .btn.green { border-color:var(--g); color:var(--g); }
+    .btn.full { width:100%; padding:11px; } .btn:disabled { opacity:.4; }
+    .trow { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:11px 0; border-top:1px solid var(--line); cursor:pointer; }
+    .trow:first-of-type { border-top:0; }
+    .tk { font:700 12.5px monospace; word-break:break-all; } .tm { font-size:11px; color:var(--mu); margin-top:2px; }
+    .badge { display:inline-block; font-size:9px; font-weight:800; padding:2px 6px; border-radius:6px; margin-left:4px; letter-spacing:.5px; }
+    .b-p { background:rgba(212,175,90,.18); color:var(--gl); } .b-b { background:rgba(207,92,92,.2); color:var(--r); }
+    .ov { position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:50; overflow-y:auto; padding:12px; }
+    .sheet { background:var(--bg); border:1px solid var(--line); border-radius:18px; padding:16px; max-width:760px; margin:0 auto; }
+    .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; } .g3 .stat strong { font-size:14px; } .g3 .stat { padding:9px; }
+    .gc { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:10px; }
+    .gc label { font-size:9.5px; color:var(--mu); letter-spacing:1px; text-transform:uppercase; display:block; margin-bottom:3px; }
+    .sw { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:12px; } .sw label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+    .sw input { width:auto; }
+    .gt { font-weight:800; font-size:14px; } .off { opacity:.55; }
+    .scroll { max-height:260px; overflow-y:auto; } .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; border:1px solid var(--gold); padding:10px 16px; border-radius:10px; font-size:12.5px; z-index:99; max-width:90%; }
+    .toast.err { border-color:var(--r); color:var(--r); }
+    .tools { display:grid; gap:8px; margin-top:8px; }
+    .login { max-width:340px; margin:80px auto; text-align:center; }
+    
+    .pat-wrap { position:relative; width:260px; height:260px; margin:24px auto 8px; touch-action:none; user-select:none; -webkit-user-select:none; }
+    .pat-wrap svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .dot { position:absolute; width:14px; height:14px; border-radius:50%; background:#ddd; transform:translate(-50%,-50%); transition:.12s; }
+    .dot.on { background:var(--gl); box-shadow:0 0 0 10px rgba(212,175,90,.2); }
+    .pat-wrap.bad .dot.on { background:var(--r); box-shadow:0 0 0 10px rgba(207,92,92,.25); }
+    .pat-wrap.bad { animation:shk .35s; }
+    @keyframes shk { 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
   </style>
 </head>
 <body>
-  <div class="row"><div><h1>MIWA ADMIN</h1><div class="sub" id="sub">Memuat…</div></div><button class="btn" id="refresh">↻ Refresh</button></div>
-  <div id="out"><div class="msg">Memuat data…</div></div>
-
+  <div id="app" style="display:none">
+    <div class="row"><div><h1>MIWA ADMIN</h1><div class="sub" id="sub"></div></div><div style="display:flex;gap:6px"><button class="btn" id="refresh">↻</button><button class="btn red" id="logout">Keluar</button></div></div>
+    <div class="tabs" id="mainTabs">
+      <button class="tab on" data-t="stats">📊 Statistik</button><button class="tab" data-t="games">🎰 Game</button><button class="tab" data-t="tokens">🎟 Token</button><button class="tab" data-t="logs">📜 Log</button>
+    </div>
+    <div id="out"></div>
+  </div>
+  <div id="loginBox" class="login" style="display:none">
+    <h1 style="margin-bottom:6px">MIWA OWNER</h1>
+    <div id="stepPat"><div class="sub" id="patMsg">Gambar pola</div>
+      <div class="pat-wrap" id="pat"><svg id="patSvg"></svg></div></div>
+    <div id="stepPass" style="display:none" class="card">
+      <div class="sub">Masukkan password</div>
+      <input id="passIn" type="password" placeholder="Password" autocomplete="off" style="margin-bottom:10px">
+      <button class="btn gold full" id="passBtn">Masuk</button>
+      <div class="warn" id="passMsg"></div>
+    </div>
+  </div>
+  <div id="modal"></div>
+  <div id="toast"></div>
 <script>
 (function () {
   const $ = id => document.getElementById(id);
   const fmt = n => Number(n || 0).toLocaleString('id-ID');
   const sgn = n => (n > 0 ? '+' : n < 0 ? '−' : '') + fmt(Math.abs(n));
   const cls = n => n > 0 ? 'pos' : n < 0 ? 'neg' : '';
-  const LABELS = { reelsgird:'🎰 Reels', roulette:'🎡 Roulette', coinflip:'🪙 Coinflip', horserace:'🐎 Horse Race', airplane:'✈️ Airplane', blackjack:'🃏 Blackjack', plinko:'🔴 Plinko', mines:'💣 Mines', wheel:'🎯 Wheel', hilo:'🔮 Hi-Lo' };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const dt = ms => ms ? new Date(ms).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) : '—';
+  const LABELS = { reelsgird:'🎰 Reels', roulette:'🎡 Roulette', coinflip:'🪙 Coinflip', horserace:'🐎 Horse Race', airplane:'✈️ Airplane', blackjack:'🃏 Blackjack', plinko:'🔴 Plinko', mines:'💣 Mines', wheel:'🎯 Wheel', hilo:'🔮 Hi-Lo', deposit:'💰 Deposit', withdraw:'💸 Withdraw', admin_add:'➕ Admin +', admin_sub:'➖ Admin −', bonus:'🎁 Bonus' };
+  const GAME_KEYS = ['reelsgird','roulette','coinflip','horserace','blackjack','hilo','plinko','wheel','airplane','mines'];
 
-  /* Ambil password dari ?pass=, simpan di sessionStorage, lalu hapus dari URL
-     supaya tidak tertinggal di riwayat/screenshot. */
-  let pass = '';
-  try {
-    const q = new URLSearchParams(location.search).get('pass');
-    if (q) { sessionStorage.setItem('miwa_admin', q); history.replaceState(null, '', location.pathname); }
-    pass = sessionStorage.getItem('miwa_admin') || '';
-  } catch (e) {}
+  let pass = '', pattern = '';
+  try { pass = sessionStorage.getItem('miwa_admin') || ''; pattern = sessionStorage.getItem('miwa_pat') || ''; } catch (e) {}
+  const H = () => ({ 'x-admin-pass': pass, 'x-admin-pattern': pattern });
 
-  let data = null, mode = 'today';
+  let tab = 'stats', stats = null, mode = 'today', cfg = null, tokens = null, logs = null;
+  let tf = { q: '', f: 'all', sort: 'balance' };
 
-  async function load() {
-    $('out').innerHTML = '<div class="msg">Memuat data…</div>';
-    try {
-      const r = await fetch('/api/admin', { headers: { 'x-admin-pass': pass } });
-      if (r.status === 401) throw new Error('Password salah / tidak ada. Buka /admin?pass=…');
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Gagal memuat');
-      data = d; draw();
-    } catch (e) { $('out').innerHTML = '<div class="msg err">❌ ' + e.message + '</div>'; $('sub').textContent = ''; }
+  function toast(m, err) {
+    const t = $('toast'); t.innerHTML = `<div class="toast ${err ? 'err' : ''}">${esc(m)}</div>`;
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.innerHTML = '', 3000);
+  }
+  async function api(action, data = {}) {
+    const r = await fetch('/api/admin-tools', { method: 'POST', headers: { 'Content-Type': 'application/json', ...H() }, body: JSON.stringify({ action, ...data }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.status === 401) { if ($('app').style.display !== 'none') logout(); throw new Error('Password/pola salah'); }
+    if (!r.ok) throw new Error(d.error || 'Gagal');
+    return d;
   }
 
+  /* ── Dialog kecil (konfirmasi / input) ── */
+  function dialog({ title, msg, input, placeholder, danger, ok = 'OK', check }) {
+    return new Promise(resolve => {
+      const d = document.createElement('div'); d.className = 'ov'; d.style.zIndex = 80;
+      d.innerHTML = `<div class="sheet" style="max-width:380px;margin-top:80px"><div class="gt" style="margin-bottom:8px">${esc(title)}</div>
+        <div class="warn" style="font-size:12.5px;color:#b9b5ac;margin-bottom:12px;line-height:1.5">${msg || ''}</div>
+        ${check ? `<label class="sw" style="margin:0 0 10px"><input type="checkbox" id="dgC"> ${esc(check)}</label>` : ''}
+        ${input ? `<input id="dgI" placeholder="${esc(placeholder || '')}" autocomplete="off" style="margin-bottom:12px">` : ''}
+        <div class="two"><button class="btn" id="dgN">Batal</button><button class="btn ${danger ? 'red' : 'gold'}" id="dgY" ${check ? 'disabled' : ''}>${esc(ok)}</button></div></div>`;
+      document.body.appendChild(d);
+      const done = v => { d.remove(); resolve(v); };
+      if (check) $('dgC').onchange = e => $('dgY').disabled = !e.target.checked;
+      $('dgN').onclick = () => done(null);
+      $('dgY').onclick = () => done(input ? $('dgI').value : true);
+      if (input) $('dgI').focus();
+    });
+  }
+
+  /* ── Auth: 1) pola  2) password (keduanya diverifikasi server) ── */
+  function logout() {
+    try { sessionStorage.removeItem('miwa_admin'); sessionStorage.removeItem('miwa_pat'); } catch (e) {}
+    pass = ''; pattern = ''; $('app').style.display = 'none'; $('loginBox').style.display = '';
+    $('stepPat').style.display = ''; $('stepPass').style.display = 'none'; $('passIn').value = ''; $('passMsg').textContent = '';
+    $('patMsg').textContent = 'Gambar pola';
+  }
+  $('logout').onclick = logout;
+
+  const patEl = $('pat'), svg = $('patSvg'), dots = [];
+  for (let i = 0; i < 9; i++) {
+    const d = document.createElement('div'); d.className = 'dot';
+    d.style.left = (16.7 + (i % 3) * 33.3) + '%'; d.style.top = (16.7 + Math.floor(i / 3) * 33.3) + '%';
+    patEl.appendChild(d); dots.push(d);
+  }
+  let seq = [], drawing = false, cur = null;
+  const center = i => { const r = patEl.getBoundingClientRect(), o = dots[i].getBoundingClientRect(); return [o.left + o.width / 2 - r.left, o.top + o.height / 2 - r.top]; };
+  function drawLines() {
+    let h = '';
+    for (let i = 1; i < seq.length; i++) { const [x1, y1] = center(seq[i - 1]), [x2, y2] = center(seq[i]); h += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>`; }
+    if (cur && seq.length) { const [x1, y1] = center(seq[seq.length - 1]); h += `<line x1="${x1}" y1="${y1}" x2="${cur[0]}" y2="${cur[1]}" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".5"/>`; }
+    svg.innerHTML = h; svg.style.color = patEl.classList.contains('bad') ? '#cf5c5c' : '#f0d080';
+  }
+  function hit(e) {
+    const r = patEl.getBoundingClientRect(); cur = [e.clientX - r.left, e.clientY - r.top];
+    dots.forEach((d, i) => { if (seq.includes(i)) return; const [x, y] = center(i); if (Math.hypot(x - cur[0], y - cur[1]) < 30) { seq.push(i); d.classList.add('on'); } });
+    drawLines();
+  }
+  function resetPat() { seq = []; cur = null; patEl.classList.remove('bad'); dots.forEach(d => d.classList.remove('on')); svg.innerHTML = ''; }
+  patEl.addEventListener('pointerdown', e => { if (patEl.classList.contains('bad')) return; resetPat(); drawing = true; patEl.setPointerCapture(e.pointerId); hit(e); });
+  patEl.addEventListener('pointermove', e => { if (drawing) hit(e); });
+  const end = async () => {
+    if (!drawing) return; drawing = false; cur = null; drawLines();
+    const attempt = seq.map(i => i + 1).join('');
+    if (attempt.length < 4) return resetPat();
+    pattern = attempt;
+    const r = await fetch('/api/admin-tools', { method: 'POST', headers: { 'Content-Type': 'application/json', ...H() }, body: JSON.stringify({ action: 'checkPattern' }) }).catch(() => ({ ok: false }));
+    if (r.ok) {
+      try { sessionStorage.setItem('miwa_pat', pattern); } catch (e) {}
+      $('stepPat').style.display = 'none'; $('stepPass').style.display = ''; $('passIn').focus();
+      resetPat();
+    } else {
+      pattern = ''; patEl.classList.add('bad'); drawLines(); $('patMsg').textContent = 'Pola salah';
+      setTimeout(() => { resetPat(); $('patMsg').textContent = 'Gambar pola'; }, 700);
+    }
+  };
+  patEl.addEventListener('pointerup', end); patEl.addEventListener('pointercancel', end);
+
+  $('passBtn').onclick = () => { pass = $('passIn').value; try { sessionStorage.setItem('miwa_admin', pass); } catch (e) {} start(true); };
+  $('passIn').onkeydown = e => { if (e.key === 'Enter') $('passBtn').click(); };
+
+  async function start(manual) {
+    if (!pass || !pattern) return logout();
+    $('loginBox').style.display = 'none';
+    try { await api('getConfig'); } catch (e) { if (manual) { $('passMsg').textContent = 'Password salah'; } else logout(); return; }
+    $('loginBox').style.display = 'none'; $('app').style.display = '';
+    load();
+  }
+
+  document.querySelectorAll('#mainTabs .tab').forEach(b => b.onclick = () => {
+    tab = b.dataset.t; document.querySelectorAll('#mainTabs .tab').forEach(x => x.classList.toggle('on', x === b)); load();
+  });
+  $('refresh').onclick = () => load(true);
+
+  async function load() {
+    $('out').innerHTML = '<div class="msg">Memuat…</div>';
+    try {
+      if (tab === 'stats') { const r = await fetch('/api/admin', { headers: H() }); const d = await r.json(); if (!r.ok) throw new Error(d.error); stats = d; drawStats(); }
+      if (tab === 'games') { cfg = await api('getConfig'); drawGames(); }
+      if (tab === 'tokens') { tokens = (await api('list')).tokens; drawTokens(); }
+      if (tab === 'logs') { logs = (await api('logs')).logs; drawLogs(); }
+    } catch (e) { $('out').innerHTML = '<div class="msg err">❌ ' + esc(e.message) + '</div>'; }
+  }
+
+  /* ════════ STATISTIK ════════ */
   function gameRows(map) {
     const keys = Object.keys(map).sort((a, b) => map[b].plays - map[a].plays);
     if (!keys.length) return '<tr><td colspan="5" style="text-align:center;color:var(--mu)">Belum ada data</td></tr>';
-    return keys.map(k => {
-      const g = map[k];
-      return `<tr><td>${LABELS[k] || k}</td><td>${fmt(g.plays)}</td><td>${fmt(g.wagered)}</td><td class="${g.rtp > 100 ? 'neg' : ''}">${g.rtp == null ? '—' : g.rtp + '%'}</td><td class="${cls(g.houseProfit)}">${sgn(g.houseProfit)}</td></tr>`;
-    }).join('');
+    return keys.map(k => { const g = map[k];
+      return `<tr><td>${LABELS[k] || k}</td><td>${fmt(g.plays)}</td><td>${fmt(g.wagered)}</td><td class="${g.rtp > 100 ? 'neg' : ''}">${g.rtp == null ? '—' : g.rtp + '%'}</td><td class="${cls(g.houseProfit)}">${sgn(g.houseProfit)}</td></tr>`; }).join('');
   }
-
-  function draw() {
-    const d = data, s = mode === 'today' ? d.today : d.total, pg = mode === 'today' ? d.perGameToday : d.perGame;
-    $('sub').textContent = 'Update ' + new Date(d.generatedAt).toLocaleString('id-ID') + ' · satuan: bet (1 bet = Rp 1.000)';
+  function drawStats() {
+    const d = stats, s = mode === 'today' ? d.today : d.total, pg = mode === 'today' ? d.perGameToday : d.perGame;
+    $('sub').textContent = 'Update ' + new Date(d.generatedAt).toLocaleString('id-ID') + ' · 1 bet = Rp 1.000';
     const st = (l, v, c) => `<div class="stat"><span>${l}</span><strong class="${c || ''}">${v}</strong></div>`;
     $('out').innerHTML = `
       <div class="tabs"><button class="tab ${mode==='today'?'on':''}" data-m="today">Hari ini (WIB)</button><button class="tab ${mode==='all'?'on':''}" data-m="all">Semua waktu</button></div>
       <div class="card"><span class="lbl">Ringkasan</span><div class="grid">
         ${st('Untung House', sgn(s.houseProfit) + ' bet', cls(s.houseProfit))}
-        ${st('RTP (kembali ke pemain)', s.rtp == null ? '—' : s.rtp + '%', s.rtp > 100 ? 'neg' : '')}
+        ${st('RTP', s.rtp == null ? '—' : s.rtp + '%', s.rtp > 100 ? 'neg' : '')}
         ${st('Total Main', fmt(s.plays))}
         ${st('Total Taruhan', fmt(s.wagered) + ' bet')}
         ${st('Menang / Kalah / Impas', `${fmt(s.wins)} / ${fmt(s.losses)} / ${fmt(s.even)}`)}
         ${st('Token (Premium)', `${fmt(d.tokens.total)} (${fmt(d.tokens.premium)})`)}
-      </div><div class="warn">Saldo beredar semua token: ${fmt(d.tokens.balanceSum)} bet. RTP &gt; 100% (merah) = game itu merugikan house.</div></div>
+      </div><div class="warn">Saldo beredar: ${fmt(d.tokens.balanceSum)} bet. RTP &gt; 100% (merah) = merugikan house.</div></div>
       <div class="card"><span class="lbl">Per Game</span><table><tr><th>Game</th><th>Main</th><th>Taruhan</th><th>RTP</th><th>House</th></tr>${gameRows(pg)}</table></div>
       <div class="card"><span class="lbl">7 Hari Terakhir</span><table><tr><th>Tanggal</th><th>Main</th><th>Taruhan</th><th>RTP</th><th>House</th></tr>
         ${d.perDay.map(x => `<tr><td>${x.date.slice(5)}</td><td>${fmt(x.plays)}</td><td>${fmt(x.wagered)}</td><td>${x.rtp == null ? '—' : x.rtp + '%'}</td><td class="${cls(x.houseProfit)}">${sgn(x.houseProfit)}</td></tr>`).join('')}</table></div>
       <div class="card"><span class="lbl">Top 10 Pemain (net profit)</span><table><tr><th>Token</th><th>Main</th><th>Net</th></tr>
-        ${d.topWinners.map(p => `<tr><td>${p.token}${p.premium ? ' ★' : ''}</td><td>${fmt(p.plays)}</td><td class="${cls(p.net)}">${sgn(p.net)}</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--mu)">Belum ada data</td></tr>'}</table></div>`;
-    document.querySelectorAll('.tab').forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
+        ${d.topWinners.map(p => `<tr><td>${esc(p.token)}${p.premium ? ' ★' : ''}</td><td>${fmt(p.plays)}</td><td class="${cls(p.net)}">${sgn(p.net)}</td></tr>`).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--mu)">Belum ada data</td></tr>'}</table></div>`;
+    document.querySelectorAll('#out .tab').forEach(b => b.onclick = () => { mode = b.dataset.m; drawStats(); });
   }
 
-  $('refresh').onclick = load;
-  load();
+  /* ════════ KONTROL GAME ════════ */
+  function drawGames() {
+    $('sub').textContent = 'Kontrol Game';
+    const m = cfg.maintenance;
+    $('out').innerHTML = `
+      <div class="card"><span class="lbl">🛠 Mode Maintenance</span>
+        <div class="sw"><label><input type="checkbox" id="mOn" ${m.on ? 'checked' : ''}> Tutup semua game (login & main diblok)</label></div>
+        <input id="mMsg" placeholder="Pesan untuk pemain (opsional)" value="${esc(m.msg)}" style="margin-top:8px"></div>
+      ${GAME_KEYS.map(k => { const g = cfg.games[k]; return `
+      <div class="card ${g.enabled ? '' : 'off'}" data-g="${k}">
+        <div class="gt">${LABELS[k]}</div>
+        <div class="sw">
+          <label><input type="checkbox" data-f="enabled" ${g.enabled ? 'checked' : ''}> 🟢 Aktif</label>
+          <label><input type="checkbox" data-f="featured" ${g.featured ? 'checked' : ''}> ⭐ Di atas (halaman utama)</label>
+          <label><input type="checkbox" data-f="premiumOnly" ${g.premiumOnly ? 'checked' : ''}> 👑 Premium only</label>
+        </div>
+        <div class="gc">
+          <div><label>Min bet</label><input type="number" min="1" data-f="minBet" value="${g.minBet}"></div>
+          <div><label>Max bet (0=default)</label><input type="number" min="0" data-f="maxBet" value="${g.maxBet}"></div>
+          <div><label>Limit/hari (0=∞)</label><input type="number" min="0" data-f="dailyLimit" value="${g.dailyLimit}"></div>
+        </div></div>`; }).join('')}
+      <button class="btn gold full" id="saveCfg">💾 Simpan Pengaturan</button>
+      <div class="warn" style="text-align:center">Max bet default: 50.000 (normal) / 100.000 (premium). Satuan = bet.</div>`;
+    $('saveCfg').onclick = async () => {
+      const out = { games: {}, maintenance: { on: $('mOn').checked, msg: $('mMsg').value } };
+      document.querySelectorAll('[data-g]').forEach(c => {
+        const o = {}; c.querySelectorAll('[data-f]').forEach(i => o[i.dataset.f] = i.type === 'checkbox' ? i.checked : Number(i.value));
+        out.games[c.dataset.g] = o;
+      });
+      try { cfg = (await api('setConfig', { config: out })).config; toast('✅ Tersimpan'); drawGames(); } catch (e) { toast(e.message, true); }
+    };
+  }
+
+  /* ════════ DAFTAR TOKEN ════════ */
+  function drawTokens() {
+    $('sub').textContent = fmt(tokens.length) + ' token';
+    $('out').innerHTML = `
+      <div class="card">
+        <input id="tq" placeholder="🔍 Cari token / owner / catatan" value="${esc(tf.q)}" style="margin-bottom:8px">
+        <div class="chips">${[['all','Semua'],['premium','Premium'],['banned','Banned']].map(([v,l]) => `<button class="chip ${tf.f===v?'on':''}" data-f="${v}">${l}</button>`).join('')}
+          <select id="ts" style="width:auto"><option value="balance">Saldo ↓</option><option value="plays">Main ↓</option><option value="net">Net pemain ↓</option><option value="last">Terakhir main</option></select>
+          <button class="chip" id="newTk">➕ Token baru</button></div>
+        <div id="tl"></div></div>`;
+    $('ts').value = tf.sort;
+    const render = () => {
+      const q = tf.q.toLowerCase();
+      let a = tokens.filter(t => (tf.f === 'all' || (tf.f === 'premium' && t.isPremium) || (tf.f === 'banned' && t.banned)) &&
+        (!q || (t.token + ' ' + t.owner + ' ' + t.note).toLowerCase().includes(q)));
+      const key = { balance: t => t.balance, plays: t => t.plays, net: t => t.net, last: t => t.lastAt };
+      a.sort((x, y) => key[tf.sort](y) - key[tf.sort](x));
+      $('tl').innerHTML = a.slice(0, 200).map(t => `<div class="trow" data-t="${esc(t.token)}"><div><div class="tk">${esc(t.token)}${t.isPremium ? '<span class="badge b-p">PREMIUM</span>' : ''}${t.banned ? '<span class="badge b-b">BANNED</span>' : ''}</div>
+        <div class="tm">${fmt(t.plays)} main · terakhir ${dt(t.lastAt)}</div></div>
+        <div style="text-align:right"><strong>${fmt(t.balance)}</strong><div class="tm ${cls(t.net)}">${sgn(t.net)}</div></div></div>`).join('')
+        || '<div class="msg">Tidak ada token</div>';
+      $('tl').querySelectorAll('.trow').forEach(r => r.onclick = () => openToken(r.dataset.t));
+    };
+    render();
+    $('tq').oninput = e => { tf.q = e.target.value; render(); };
+    $('ts').onchange = e => { tf.sort = e.target.value; render(); };
+    document.querySelectorAll('.chip[data-f]').forEach(c => c.onclick = () => { tf.f = c.dataset.f; drawTokens(); });
+    $('newTk').onclick = async () => {
+      const v = await dialog({ title: 'Buat token baru', msg: 'Isi saldo awal (bet).', input: true, placeholder: '0', ok: 'Buat' });
+      if (v === null) return;
+      try { const r = await api('createToken', { balance: Number(v) || 0 }); toast('✅ ' + r.token); await load(); openToken(r.token); } catch (e) { toast(e.message, true); }
+    };
+  }
+
+  /* ════════ DETAIL TOKEN + TOOLS ════════ */
+  async function openToken(tkn) {
+    let t;
+    try { t = await api('detail', { token: tkn }); } catch (e) { return toast(e.message, true); }
+    const st = (l, v, c) => `<div class="stat"><span>${l}</span><strong class="${c || ''}">${v}</strong></div>`;
+    const pg = Object.entries(t.perGame).sort((a, b) => b[1].plays - a[1].plays);
+    $('modal').innerHTML = `<div class="ov"><div class="sheet">
+      <div class="row"><div><div class="tk" style="font-size:14px">${esc(t.token)}${t.isPremium ? '<span class="badge b-p">PREMIUM</span>' : ''}${t.banned ? '<span class="badge b-b">BANNED</span>' : ''}</div>
+        <div class="tm">Owner: ${esc(t.owner || '—')}${t.banned && t.banReason ? ' · Alasan ban: ' + esc(t.banReason) : ''}</div></div><button class="btn" id="cls">✕</button></div>
+      <div class="g3">
+        ${st('Saldo', fmt(t.balance))}${st('Total Main', fmt(t.plays))}${st('Total Taruhan', fmt(t.wagered))}
+        ${st('Menang', fmt(t.wins), 'pos')}${st('Kalah', fmt(t.losses), 'neg')}${st('Win Rate', t.winRate == null ? '—' : t.winRate + '%')}
+        ${st('Net Pemain', sgn(t.net), cls(t.net))}${st('RTP', t.rtp == null ? '—' : t.rtp + '%')}${st('Rata² Bet', fmt(t.avgBet))}
+        ${st('Bet Terbesar', fmt(t.biggestBet))}${st('Menang Terbesar', sgn(t.biggestWin), 'pos')}${st('Kalah Terbesar', sgn(t.biggestLoss), 'neg')}
+        ${st('Total Deposit', fmt(t.deposit))}${st('Total Withdraw', fmt(t.withdraw))}${st('Bonus', fmt(t.bonus))}
+        ${st('Admin +', fmt(t.adminAdd))}${st('Admin −', fmt(t.adminSub))}${st('Main Pertama', dt(t.firstAt))}
+      </div>
+      <div class="tm" style="margin:6px 0 12px">Terakhir main: ${dt(t.lastAt)}</div>
+      <div class="card" style="margin-top:8px"><span class="lbl">Per Game</span><div class="scroll"><table><tr><th>Game</th><th>Main</th><th>Taruhan</th><th>W/L</th><th>Net</th><th>Bet Max</th></tr>
+        ${pg.map(([k, g]) => `<tr><td>${LABELS[k] || k}</td><td>${fmt(g.plays)}</td><td>${fmt(g.wagered)}</td><td>${g.wins}/${g.losses}</td><td class="${cls(g.net)}">${sgn(g.net)}</td><td>${fmt(g.biggestBet)}</td></tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--mu)">Belum main</td></tr>'}</table></div></div>
+      <div class="card"><span class="lbl">Riwayat (100 terakhir)</span><div class="scroll"><table><tr><th>Waktu</th><th>Game</th><th>Bet</th><th>Hasil</th></tr>
+        ${t.history.map(h => `<tr><td>${dt(h.at)}</td><td>${LABELS[h.game] || h.game}</td><td>${fmt(h.bet)}</td><td class="${cls(h.change)}">${sgn(h.change)}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--mu)">Kosong</td></tr>'}</table></div></div>
+
+      <div class="card"><span class="lbl">🛠 Tools Admin</span>
+        <div class="tools">
+          <input id="amt" type="number" min="1" placeholder="Jumlah (bet)">
+          <div class="g3" style="gap:6px"><button class="btn green" data-a="add">➕ Tambah</button><button class="btn red" data-a="sub">➖ Kurangi</button><button class="btn gold" data-a="bonus">🎁 Bonus</button></div>
+          <button class="btn" id="setBal">✏️ Set saldo ke angka pasti</button>
+          <div class="two"><button class="btn" id="prem">${t.isPremium ? '👑 Cabut Premium' : '👑 Jadikan Premium'}</button>
+            <button class="btn ${t.banned ? 'green' : 'red'}" id="ban">${t.banned ? '✅ Unban' : '🚫 Ban'}</button></div>
+          <textarea id="note" rows="2" placeholder="Catatan admin (tidak terlihat pemain)">${esc(t.note)}</textarea>
+          <button class="btn" id="saveNote">💾 Simpan catatan</button>
+          <div class="two"><button class="btn" id="regen">🔄 Ganti token</button><button class="btn red" id="rst">🧹 Reset riwayat</button></div>
+          <button class="btn red full" id="del">🗑️ Hapus akun</button>
+        </div></div></div></div>`;
+    const close = () => $('modal').innerHTML = '';
+    $('cls').onclick = () => { close(); if (tab === 'tokens') load(); };
+    const run = async (action, data, okMsg, reopen = true) => {
+      try { const r = await api(action, { token: t.token, ...data }); toast(okMsg || '✅ Berhasil'); if (reopen) openToken(r.token || t.token); return r; } catch (e) { toast(e.message, true); }
+    };
+    document.querySelectorAll('[data-a]').forEach(b => b.onclick = async () => {
+      const amount = Number($('amt').value);
+      if (!(amount >= 1)) return toast('Isi jumlah dulu', true);
+      const label = { add: 'Tambah', sub: 'Kurangi', bonus: 'Beri bonus' }[b.dataset.a];
+      if (await dialog({ title: label + ' ' + fmt(amount) + ' bet?', msg: 'Token: <b>' + esc(t.token) + '</b><br>(' + fmt(amount * 1000) + ' Rp)', ok: 'Ya, lanjut' })) run(b.dataset.a, { amount });
+    });
+    $('setBal').onclick = async () => {
+      const v = await dialog({ title: 'Set saldo', msg: 'Saldo sekarang ' + fmt(t.balance) + ' bet. Isi saldo baru.', input: true, placeholder: '0', ok: 'Set' });
+      if (v !== null && v !== '') run('setBalance', { amount: Number(v) });
+    };
+    $('prem').onclick = () => run('setPremium', { value: !t.isPremium });
+    $('ban').onclick = async () => {
+      if (t.banned) { if (await dialog({ title: 'Unban token ini?', ok: 'Unban' })) run('unban', {}, '✅ Di-unban'); return; }
+      const reason = await dialog({ title: 'Ban token', msg: 'Pemain akan melihat popup "Token di-ban oleh Owner". Alasan (opsional):', input: true, placeholder: 'mis. curang / bug abuse', danger: true, ok: 'Ban' });
+      if (reason !== null) run('ban', { reason }, '🚫 Di-ban');
+    };
+    $('saveNote').onclick = () => run('setNote', { note: $('note').value }, '✅ Catatan tersimpan', false);
+    $('regen').onclick = async () => {
+      if (await dialog({ title: 'Ganti token?', msg: 'Token lama langsung tidak bisa dipakai. Pemain harus diberi token baru.', danger: true, ok: 'Ganti' })) {
+        const r = await run('regenToken', {}, '✅ Token baru dibuat', false);
+        if (r) { await dialog({ title: 'Token baru', msg: '<b style="font-family:monospace;user-select:all">' + esc(r.token) + '</b>', ok: 'OK' }); close(); load(); }
+      }
+    };
+    $('rst').onclick = async () => {
+      const c = await dialog({ title: 'Reset riwayat', msg: 'Ketik token untuk konfirmasi:<br><b style="font-family:monospace">' + esc(t.token) + '</b>', input: true, danger: true, ok: 'Reset' });
+      if (c !== null) run('resetHistory', { confirm: c });
+    };
+    /* Hapus akun — verifikasi 2 tahap: centang + ketik manual token (dicek ulang di server) */
+    $('del').onclick = async () => {
+      const ok1 = await dialog({ title: '⚠️ Hapus akun — tahap 1/2', msg: 'Akun, saldo (<b>' + fmt(t.balance) + ' bet</b>) dan riwayat dihapus <b>permanen</b>.', check: 'Saya paham ini tidak bisa dibatalkan', danger: true, ok: 'Lanjut' });
+      if (!ok1) return;
+      const typed = await dialog({ title: '⚠️ Hapus akun — tahap 2/2', msg: 'Ketik token ini secara manual (tanpa copy-paste jika bisa):<br><b style="font-family:monospace">' + esc(t.token) + '</b>', input: true, placeholder: 'Ketik token…', danger: true, ok: '🗑️ HAPUS' });
+      if (typed === null) return;
+      if (typed.trim().toUpperCase() !== t.token) return toast('Token yang diketik tidak cocok — dibatalkan', true);
+      const r = await run('delete', { confirm1: true, confirm2: typed }, '🗑️ Akun dihapus', false);
+      if (r) { close(); load(); }
+    };
+  }
+
+  /* ════════ LOG ════════ */
+  function drawLogs() {
+    $('sub').textContent = 'Log aktivitas admin (100 terakhir)';
+    $('out').innerHTML = `<div class="card"><table><tr><th>Waktu</th><th>Aksi</th><th>Token</th><th>Detail</th></tr>
+      ${logs.map(l => `<tr><td>${dt(l.at)}</td><td>${esc(l.action)}</td><td>${esc(l.token)}</td><td>${esc(l.detail || '')}${l.note ? ' · ' + esc(l.note) : ''}</td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--mu)">Belum ada log</td></tr>'}</table></div>`;
+  }
+
+  start();
 })();
 </script>
 </body>

@@ -30,8 +30,37 @@ const MAX_ABS_CHANGE = 1000000000000000;
 /* Max bet per main: normal 50jt bet, premium 100jt bet */
 const MAX_BET_NORMAL  = 50000;
 const MAX_BET_PREMIUM = 100000;
-function getMaxBet() {
+/* Config dari admin (/api/config): game on/off, unggulan, min/max bet, premium-only */
+let SITE_CFG = null;
+async function loadSiteConfig() {
+  try {
+    const r = await fetch('/api/config?_=' + Date.now());
+    if (r.ok) SITE_CFG = await r.json();
+  } catch (e) {}
+  return SITE_CFG;
+}
+function gcfg(game) { return SITE_CFG?.games?.[game] || null; }
+function isGameEnabled(game) { const g = gcfg(game); return g ? g.enabled : true; }
+function isPremiumOnly(game) { const g = gcfg(game); return g ? g.premiumOnly : PREMIUM_ONLY_GAMES.has(game); }
+function getMinBet(game) { return gcfg(game || _selectedGame)?.minBet || 1; }
+function getMaxBet(game) {
+  const g = gcfg(game || _selectedGame);
+  if (g && g.maxBet > 0) return g.maxBet;
   return currentToken?.isPremium ? MAX_BET_PREMIUM : MAX_BET_NORMAL;
+}
+
+/* Popup token di-ban */
+function showBanPopup(reason) {
+  const old = document.getElementById('banPopup'); if (old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'banPopup';
+  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px;';
+  m.innerHTML = `<div style="background:#16161d;border:1px solid #cf5c5c;border-radius:18px;padding:26px 22px;max-width:340px;text-align:center;color:#f0ede8;font-family:Syne,sans-serif;">
+    <div style="font-size:42px;margin-bottom:8px;">🚫</div>
+    <div style="font-weight:800;font-size:16px;color:#cf5c5c;margin-bottom:8px;">Token di-ban oleh Owner</div>
+    <div style="font-size:12.5px;color:#9b988f;line-height:1.5;margin-bottom:16px;">${reason ? 'Alasan: ' + String(reason).replace(/</g,'&lt;') + '<br>' : ''}Hubungi Owner jika merasa ini kesalahan.</div>
+    <button onclick="document.getElementById('banPopup').remove()" style="padding:10px 22px;border-radius:10px;border:1px solid #cf5c5c;background:transparent;color:#cf5c5c;font-weight:700;cursor:pointer;">Tutup</button></div>`;
+  document.body.appendChild(m);
 }
 
 /* Multiplier TERBESAR yang mungkin kejadian per game (worst case buat
@@ -87,6 +116,9 @@ const GAME_LABELS = {
   airplane:  '✈️ AirPlane',
   mines:     '💣 Mines',
   deposit:   '💰 Deposit',
+  admin_add: '🛠 Tambah Saldo (Admin)',
+  admin_sub: '🛠 Kurangi Saldo (Admin)',
+  bonus:     '🎁 Bonus',
   withdraw:  '💸 Withdraw',
 };
 
@@ -184,7 +216,9 @@ async function getTokenData(token) {
   const res = await fetch('/api/gacha?token=' + encodeURIComponent(token) + '&_=' + Date.now());
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || 'Gagal mengambil data dari server');
+    const e = new Error(err.error || 'Gagal mengambil data dari server');
+    if (err.banned) { e.banned = true; e.reason = err.reason || ''; }
+    throw e;
   }
   const json = await res.json();
   if (!json.content) throw new Error(json.message || 'Content tidak ditemukan');
@@ -289,6 +323,11 @@ async function startSpin() {
   setStatus('Mengecek token...', true);
 
   try {
+    await loadSiteConfig();
+    if (SITE_CFG?.maintenance?.on) {
+      setStatus('🛠 ' + (SITE_CFG.maintenance.msg || 'Sedang maintenance, coba lagi nanti'));
+      btn.disabled = false; return;
+    }
     /* FIX: kirim token ke server, server hanya return data token itu saja */
     currentFile  = await getTokenData(token);
     currentToken = (currentFile.data.tokens || [])[0];
@@ -309,7 +348,13 @@ async function startSpin() {
 
   } catch (err) {
     console.error(err);
-    setStatus('❌ ERROR: ' + err.message);
+    if (err.banned) {
+      localStorage.removeItem('miwa_token');
+      setStatus('🚫 Token di-ban oleh Owner');
+      showBanPopup(err.reason);
+    } else {
+      setStatus('❌ ERROR: ' + err.message);
+    }
     btn.disabled = false;
   }
 }
@@ -368,12 +413,16 @@ function showTokenDashboard() {
     <div class="token-game-section">
       <div class="token-section-label">PILIH GAME</div>
       <div class="token-game-grid">
-        ${Object.entries(GAME_BUTTONS).map(([key, label]) => {
-          const locked = PREMIUM_ONLY_GAMES.has(key) && !currentToken.isPremium;
+        ${Object.entries(GAME_BUTTONS)
+          .filter(([key]) => isGameEnabled(key))
+          .sort((a, b) => (gcfg(b[0])?.featured ? 1 : 0) - (gcfg(a[0])?.featured ? 1 : 0))
+          .map(([key, label]) => {
+          const locked = isPremiumOnly(key) && !currentToken.isPremium;
+          const star = gcfg(key)?.featured ? '⭐ ' : '';
           return `
           <button class="token-game-btn ${locked ? 'locked' : ''}" id="gameBtn_${key}"
                   onclick="selectGame('${key}')" ${locked ? 'title="Khusus token Premium"' : ''}>
-            ${label} ${locked ? '🔒' : ''}
+            ${star}${label} ${locked ? '🔒' : ''}
             <span class="token-game-multi">${locked ? 'Premium only' : gameMultiLabel(key)}</span>
           </button>
         `;}).join('')}
@@ -394,7 +443,12 @@ function showTokenDashboard() {
 let _selectedGame = null;
 
 function selectGame(game) {
-  if (PREMIUM_ONLY_GAMES.has(game) && !currentToken?.isPremium) {
+  if (!isGameEnabled(game)) {
+    SFX.generic.error();
+    setStatus('⛔ Game ini sedang dinonaktifkan.');
+    return;
+  }
+  if (isPremiumOnly(game) && !currentToken?.isPremium) {
     SFX.generic.error();
     setStatus('🔒 Game ini khusus token Premium.');
     return;
@@ -438,7 +492,7 @@ function openBetModal(game) {
         <span>(${formatRp(betToRp(currentToken.balance))})</span>
       </div>
 
-      <div class="bet-modal-label">Jumlah Bet</div>
+      <div class="bet-modal-label">Jumlah Bet <span style="opacity:.6;font-weight:400">(min ${getMinBet(game)} · max ${getMaxBet(game).toLocaleString()})</span></div>
       <div class="bet-modal-input-row">
         <input id="betModalInput" type="number"
                min="1" max="${currentToken.balance}"
@@ -523,7 +577,7 @@ function onModalBetInput() {
   const overLimit  = val >= 1 && maxPossibleChange(_selectedGame, val) > MAX_ABS_CHANGE;
   const overMaxBet = val >= 1 && val > getMaxBet();
 
-  const valid = val >= 1 && val <= currentToken.balance && !overLimit && !overMaxBet;
+  const valid = val >= getMinBet() && val <= currentToken.balance && !overLimit && !overMaxBet;
   if (startBtn) startBtn.disabled = !valid;
 
   if (!preview) return;
@@ -536,7 +590,7 @@ function onModalBetInput() {
   }
   if (overMaxBet) {
     const maxBet = getMaxBet();
-    preview.textContent = `⚠ Max bet ${currentToken.isPremium ? 'Premium' : 'Normal'}: ${maxBet.toLocaleString()} bet`;
+    preview.textContent = `⚠ Max bet: ${maxBet.toLocaleString()} bet`;
     preview.className = 'bet-modal-preview warn';
     return;
   }
@@ -608,7 +662,7 @@ function _saveLastBet(game, val) {
 function submitBetModal() {
   const inp = document.getElementById('betModalInput');
   const val = parseInt(inp?.value) || 0;
-  if (val < 1 || val > currentToken.balance) return;
+  if (val < getMinBet() || val > currentToken.balance || val > getMaxBet()) return;
 
   SFX.generic.click();
   closeBetModal();
@@ -655,16 +709,16 @@ function _removeWaitingPlaceholder() {
 
 async function _launchGame() {
   if (_gameActive || !_selectedGame || !currentToken) return;
-  if (PREMIUM_ONLY_GAMES.has(_selectedGame) && !currentToken.isPremium) {
+  if (isPremiumOnly(_selectedGame) && !currentToken.isPremium) {
     setStatus('🔒 Game ini khusus token Premium.');
     return;
   }
-  if (_currentBet < 1 || _currentBet > currentToken.balance) {
+  if (_currentBet < getMinBet() || _currentBet > currentToken.balance) {
     setStatus('⚠ Jumlah bet tidak valid.');
     return;
   }
   if (_currentBet > getMaxBet()) {
-    setStatus(`⚠ Max bet ${currentToken.isPremium ? 'Premium' : 'Normal'}: ${getMaxBet().toLocaleString()} bet`);
+    setStatus(`⚠ Max bet: ${getMaxBet().toLocaleString()} bet`);
     return;
   }
   if (maxPossibleChange(_selectedGame, _currentBet) > MAX_ABS_CHANGE) {
@@ -706,7 +760,9 @@ async function _launchGame() {
     });
     if (!rollRes.ok) {
       const e = await rollRes.json().catch(() => ({}));
-      throw new Error(e.error || 'Gagal memulai game');
+      const er = new Error(e.error || 'Gagal memulai game');
+      if (e.banned) er.banned = true;
+      throw er;
     }
     _rollResult = await rollRes.json();
   } catch (err) {
@@ -715,6 +771,7 @@ async function _launchGame() {
     _removeWaitingPlaceholder();
     SFX.generic.error();
     setStatus('❌ ' + err.message);
+    if (err.banned) { localStorage.removeItem('miwa_token'); showBanPopup(); }
     if (dashboard) dashboard.style.display = '';
     return;
   }
