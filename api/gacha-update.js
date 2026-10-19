@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     }
 
     const body = req.body || {};
-    const { token, owner, change, historyEntry, newToken, setIsPremium, reToken, rollId } = body;
+    const { token, owner, change, historyEntry, newToken, setIsPremium, reToken, rollId, botId } = body;
 
     const client = await getClient();
     const col        = client.db(DB_NAME).collection(COLLECTION);
@@ -141,17 +141,32 @@ export default async function handler(req, res) {
       const baseMatch   = token ? { token } : { owner };
       const arrayFilter = token ? { "elem.token": token } : { "elem.owner": owner };
 
-      const updatedDoc = await col.findOneAndUpdate(
+      /* Multi-bot: tiap bot punya "suara" premium sendiri (premiumBy.<botId>).
+         isPremium = TRUE kalau minimal satu bot bilang premium; baru FALSE
+         kalau semua bot sudah tidak premium. botId aman untuk key Mongo. */
+      const bid = String(botId || "default").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "default";
+
+      const voted = await col.findOneAndUpdate(
         { _id: DOC_ID, tokens: { $elemMatch: baseMatch } },
-        { $set: { "tokens.$[elem].isPremium": setIsPremium } },
+        { $set: { [`tokens.$[elem].premiumBy.${bid}`]: setIsPremium } },
         { arrayFilters: [arrayFilter], returnDocument: "after" }
       );
-
-      if (!updatedDoc) {
+      if (!voted) {
         return res.status(409).json({ error: "Token/owner tidak ditemukan" });
       }
 
-      return res.status(200).json({ success: true, isPremium: setIsPremium });
+      const t = (voted.tokens || []).find(x => token ? x.token === token : x.owner === owner);
+      const anyPremium = Object.values(t?.premiumBy || {}).some(v => v === true);
+
+      if (!!t?.isPremium !== anyPremium) {
+        await col.updateOne(
+          { _id: DOC_ID },
+          { $set: { "tokens.$[elem].isPremium": anyPremium } },
+          { arrayFilters: [arrayFilter] }
+        );
+      }
+
+      return res.status(200).json({ success: true, isPremium: anyPremium });
     }
 
     /* ════════════════════════════════════════

@@ -62,6 +62,28 @@ export default async function handler(req, res) {
       return res.status(200).json({ content, sha: "0" });
     }
 
+    /* ── MODE L: daftar owner + status premium (dipakai bot WA untuk
+       sweep auto-promote/demote). Wajib X-Internal-Key. TIDAK mengirim
+       string token / saldo — hanya owner & isPremium. */
+    if (!tokenParam && String(req.query.list || "") === "1") {
+      const incomingKey = String(req.headers["x-internal-key"] || "").trim();
+      if (!INTERNAL_KEY) {
+        return res.status(503).json({ error: "Lookup tidak dikonfigurasi" });
+      }
+      if (!incomingKey || incomingKey !== INTERNAL_KEY) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const client = await getClient();
+      const doc = await client.db(DB_NAME).collection(COLLECTION).findOne(
+        { _id: DOC_ID },
+        { projection: { "tokens.owner": 1, "tokens.isPremium": 1, "tokens.premiumBy": 1 } }
+      );
+      const tokens = (doc?.tokens || [])
+        .filter(t => t && t.owner)
+        .map(t => ({ owner: t.owner, isPremium: !!t.isPremium, premiumBy: t.premiumBy || {} }));
+      return res.status(200).json({ tokens });
+    }
+
     /* ── MODE B: lookup by OWNER (dipakai bot WA internal) ──────────
        Wajib sertakan header X-Internal-Key yang cocok dengan env var
        INTERNAL_API_KEY. Tanpa itu, request ditolak 401.
