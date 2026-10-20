@@ -24,19 +24,18 @@
   <!-- Input / Back-to-dashboard (saling tukar tampil) -->
   <div id="tokenInputSlot">
     <div class="glass-card" id="tokenInputCard">
-      <span class="input-label">Masukkan Token</span>
-      <form id="tokenForm" autocomplete="on">
+      <span class="input-label">Masuk ke Akun</span>
+      <form id="tokenForm" autocomplete="off">
+        <input id="gachaId" type="hidden" value="SESSION">
+        <p style="font-size:13px;opacity:.8;line-height:1.5;margin:0 0 12px">
+          Belum punya akun? Ketik <b>.csn create</b> di grup bot. Masuk dengan verifikasi nomor WhatsApp.
+        </p>
         <div class="input-row">
-          <div class="input-wrap">
-            <input
-              id="gachaId"
-              name="gachaToken"
-              type="text"
-              placeholder="TKN-XXXXXXXXXXXX"
-              autocomplete="on"
-              spellcheck="false">
-          </div>
-          <button id="spinBtn" type="submit">Cek Token</button>
+          <a href="/verify" id="loginLink" class="input-wrap"
+             style="display:flex;align-items:center;justify-content:center;text-decoration:none;color:inherit;font-weight:600">
+            Masuk via WhatsApp
+          </a>
+          <button id="spinBtn" type="submit">Cek Sesi</button>
         </div>
       </form>
     </div>

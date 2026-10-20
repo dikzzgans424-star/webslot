@@ -60,11 +60,9 @@
   </div>
 
   <div id="pfLogin" class="pf-card" style="display:none">
-    <span class="pf-label">Masukkan Token</span>
-    <form id="pfForm" class="pf-input-row" autocomplete="off">
-      <input id="pfInput" placeholder="Token kamu" maxlength="64" required>
-      <button class="pf-btn" type="submit">CEK</button>
-    </form>
+    <span class="pf-label">Masuk ke Akun</span>
+    <div class="pf-msg" style="margin-bottom:14px">Masuk dengan verifikasi nomor WhatsApp lewat grup bot.</div>
+    <a class="pf-link main" href="/verify">🔐 &nbsp;Masuk via WhatsApp</a>
     <div id="pfLoginMsg" class="pf-msg"></div>
   </div>
 
@@ -73,7 +71,7 @@
   <div id="pfContent" style="display:none">
     <div class="pf-card">
       <div class="pf-token-row">
-        <div><span class="pf-label" style="margin-bottom:6px">Token</span><div class="pf-token" id="pfToken"></div></div>
+        <div><span class="pf-label" style="margin-bottom:6px">Akun</span><div class="pf-token" id="pfToken"></div></div>
         <span class="pf-badge" id="pfBadge"></span>
       </div>
       <span class="pf-label" style="margin-top:20px;margin-bottom:0">Saldo</span>
@@ -99,7 +97,7 @@
 
     <div class="pf-actions">
       <a class="pf-link main" href="/">🎮 &nbsp;Main Sekarang</a>
-      <a class="pf-link ghost" href="#" id="pfSwitch">Ganti Token</a>
+      <a class="pf-link ghost" href="#" id="pfSwitch">Keluar</a>
     </div>
   </div>
 </div>
@@ -118,33 +116,26 @@
   let history = [], shown = 0;
   const PAGE = 15;
 
-  function getSavedToken() {
-    const q = new URLSearchParams(location.search).get('token');
-    if (q) return q.trim().toUpperCase();
-    try { return (localStorage.getItem('miwa_token') || '').trim().toUpperCase(); } catch (e) { return ''; }
-  }
-
-  async function load(token) {
+  async function load() {
     $('pfLoading').style.display = '';
     $('pfLogin').style.display = 'none';
     $('pfContent').style.display = 'none';
     try {
-      const r = await fetch('/api/profile?token=' + encodeURIComponent(token));
+      const r = await fetch('/api/profile', { cache: 'no-store' });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Gagal memuat profil');
       render(d);
     } catch (e) {
       $('pfLoading').style.display = 'none';
       $('pfLogin').style.display = '';
-      $('pfLoginMsg').textContent = '❌ ' + e.message;
-      $('pfLoginMsg').className = 'pf-msg err';
+      $('pfLoginMsg').textContent = '';
     }
   }
 
   function render(d) {
     $('pfLoading').style.display = 'none';
     $('pfContent').style.display = '';
-    $('pfToken').textContent = d.token;
+    $('pfToken').textContent = d.account || '';
     $('pfBadge').textContent = d.isPremium ? '★ Premium' : 'Normal';
     $('pfBadge').className = 'pf-badge ' + (d.isPremium ? 'prem' : 'norm');
     $('pfBal').textContent = fmt(d.balance);
@@ -200,22 +191,15 @@
   }
 
   $('pfMore').addEventListener('click', more);
-  $('pfForm').addEventListener('submit', e => {
+  $('pfSwitch').addEventListener('click', async e => {
     e.preventDefault();
-    const t = $('pfInput').value.trim().toUpperCase();
-    if (t) load(t);
-  });
-  $('pfSwitch').addEventListener('click', e => {
-    e.preventDefault();
+    try { localStorage.removeItem('miwa_token'); } catch (_) {}
+    try { await fetch('/api/token-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); } catch (_) {}
     $('pfContent').style.display = 'none';
     $('pfLogin').style.display = '';
-    $('pfLoginMsg').textContent = '';
-    $('pfInput').value = '';
   });
 
-  const saved = getSavedToken();
-  if (saved) load(saved);
-  else { $('pfLoading').style.display = 'none'; $('pfLogin').style.display = ''; }
+  load();
 })();
 </script>
 </body>

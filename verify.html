@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masuk • Miwa Casino</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .vf-wrap{max-width:460px;margin:0 auto;padding:24px 16px 48px}
+  .vf-title{font-size:22px;font-weight:700;margin:8px 0 4px}
+  .vf-sub{opacity:.75;font-size:14px;margin-bottom:18px;line-height:1.5}
+  .vf-steps{display:flex;gap:8px;margin-bottom:16px;font-size:12px}
+  .vf-step{flex:1;text-align:center;padding:8px 4px;border-radius:10px;background:rgba(255,255,255,.06);opacity:.5}
+  .vf-step.on{opacity:1;background:rgba(255,255,255,.14);font-weight:600}
+  .vf-step.done{opacity:.85}
+  .vf-code{font-size:26px;font-weight:800;letter-spacing:4px;text-align:center;padding:14px;border-radius:12px;background:rgba(0,0,0,.25);user-select:all;margin:10px 0}
+  .vf-cmd{font-family:monospace;font-size:14px;text-align:center;user-select:all;opacity:.9}
+  .vf-row{display:flex;gap:8px;margin-top:10px}
+  .vf-row button{flex:1}
+  .vf-msg{margin-top:12px;font-size:13px;line-height:1.5;min-height:18px}
+  .vf-err{color:#ff7a7a}
+  .vf-tok{font-family:monospace;font-size:18px;font-weight:700;text-align:center;word-break:break-all;padding:14px;border-radius:12px;background:rgba(0,0,0,.25);user-select:all}
+  .vf-back{display:inline-block;margin-top:18px;font-size:13px;opacity:.8;color:inherit}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="vf-wrap">
+  <div class="vf-title">Masuk ke Akun</div>
+  <div class="vf-sub">Masuk dengan verifikasi nomor lewat grup bot WhatsApp. Belum punya akun? Ketik <b>.csn create</b> di grup bot dulu.</div>
+
+  <div class="vf-steps">
+    <div class="vf-step on" id="s1">1. Nomor</div>
+    <div class="vf-step" id="s2">2. Verifikasi</div>
+    <div class="vf-step" id="s3">3. Masuk</div>
+  </div>
+
+  <div class="glass-card" style="padding:18px">
+    <!-- Step 1 -->
+    <div id="p1">
+      <span class="input-label">Nomor WhatsApp</span>
+      <div class="input-wrap"><input id="phone" type="tel" inputmode="numeric" placeholder="628xxxxxxxxxx" autocomplete="tel"></div>
+      <div class="vf-row"><button id="startBtn" type="button">Minta Kode</button></div>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="p2" hidden>
+      <div style="font-size:14px">Kirim pesan ini di <b>grup bot</b> dari nomor <b id="shownPhone"></b>:</div>
+      <div class="vf-code" id="codeBox"></div>
+      <div class="vf-cmd" id="cmdBox"></div>
+      <div class="vf-row"><button id="copyBtn" type="button">Salin Perintah</button><button id="cancelBtn" type="button">Batal</button></div>
+      <div class="vf-msg" id="waitMsg"></div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="p3" hidden>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">✅ Berhasil masuk</div>
+      <div style="font-size:14px;opacity:.85;line-height:1.5">Akunmu sudah terhubung dengan nomor <b id="okPhone"></b>. Tidak perlu token, sesi tersimpan aman di browser ini.</div>
+      <div class="vf-row"><button id="goBtn" type="button">🎮 Main Sekarang</button><button id="profBtn" type="button">👤 Profil</button></div>
+      <div class="vf-msg">Ingin keluar dari perangkat lain? Ketik <b>.csn logout</b> di bot.</div>
+    </div>
+
+    <div class="vf-msg vf-err" id="err"></div>
+  </div>
+
+  <a class="vf-back" href="/">← Kembali</a>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let timer = null;
+  const PREFIX = '.';
+  let phoneShown = '';
+
+  function step(n) {
+    ['p1','p2','p3'].forEach((p,i) => $(p).hidden = (i+1) !== n);
+    ['s1','s2','s3'].forEach((s,i) => { $(s).className = 'vf-step' + ((i+1)===n ? ' on' : (i+1)<n ? ' done' : ''); });
+  }
+  const err = t => { $('err').textContent = t || ''; };
+  const post = body => fetch('/api/token-verify', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+  }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
+
+  function reset() { clearInterval(timer); err(''); step(1); }
+
+  $('startBtn').onclick = async () => {
+    err(''); $('startBtn').disabled = true;
+    const phone = $('phone').value.trim();
+    const { ok, data } = await post({ action: 'start', phone });
+    $('startBtn').disabled = false;
+    if (!ok) return err(data.error || 'Gagal, coba lagi.');
+
+    phoneShown = phone;
+    $('shownPhone').textContent = phone;
+    $('codeBox').textContent = data.code;
+    $('cmdBox').textContent = PREFIX + 'csn verify ' + data.code;
+    $('waitMsg').textContent = 'Menunggu verifikasi dari grup… (berlaku ' + Math.round(data.expiresIn/60) + ' menit)';
+    step(2);
+
+    const until = Date.now() + data.expiresIn * 1000;
+    clearInterval(timer);
+    timer = setInterval(async () => {
+      if (Date.now() > until) { reset(); return err('Kode kedaluwarsa, minta kode baru.'); }
+      const r = await post({ action: 'poll', sid: data.sid });
+      if (r.data.status === 'verified') {
+        clearInterval(timer);
+        $('okPhone').textContent = phoneShown;
+        step(3);
+      } else if (r.data.status === 'expired' || (!r.ok && r.data.error)) {
+        reset(); err(r.data.error || 'Kode kedaluwarsa, minta kode baru.');
+      }
+    }, 2500);
+  };
+
+  const copy = (txt, btn) => navigator.clipboard?.writeText(txt).then(() => {
+    const o = btn.textContent; btn.textContent = 'Tersalin ✓'; setTimeout(() => btn.textContent = o, 1500);
+  }).catch(() => {});
+  $('copyBtn').onclick = () => copy($('cmdBox').textContent, $('copyBtn'));
+  $('cancelBtn').onclick = reset;
+  $('goBtn').onclick = () => { location.href = '/'; };
+  $('profBtn').onclick = () => { location.href = '/profile'; };
+})();
+</script>
+</body>
+</html>

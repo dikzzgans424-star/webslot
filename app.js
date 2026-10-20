@@ -217,6 +217,7 @@ async function getTokenData(token) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     const e = new Error(err.error || 'Gagal mengambil data dari server');
+    if (res.status === 401 || err.needLogin) e.needLogin = true;
     if (err.banned) { e.banned = true; e.reason = err.reason || ''; }
     throw e;
   }
@@ -315,12 +316,12 @@ async function startSpin() {
     return;
   }
 
-  const token = document.getElementById('gachaId').value.trim().toUpperCase();
-  if (!token) { setStatus('⚠ Masukkan token terlebih dahulu.'); shakeInput(); return; }
+  /* Identitas dari cookie sesi (httpOnly); "SESSION" hanya penanda, bukan token asli */
+  const token = 'SESSION';
 
   const btn = document.getElementById('spinBtn');
   btn.disabled = true;
-  setStatus('Mengecek token...', true);
+  setStatus('Memeriksa sesi...', true);
 
   try {
     await loadSiteConfig();
@@ -336,13 +337,13 @@ async function startSpin() {
       currentToken = null;
     }
 
-    if (!currentToken) { setStatus('( ! ) INVALID: Token tidak ditemukan'); btn.disabled = false; return; }
+    if (!currentToken) { setStatus('( ! ) Akun tidak ditemukan'); btn.disabled = false; return; }
     if (currentToken.balance <= 0) { setStatus('( ! ) GAGAL: Saldo token habis'); btn.disabled = false; return; }
 
     /* ── Anti-refresh: simpan token ke localStorage ── */
-    localStorage.setItem('miwa_token', currentToken.token);
+    try { localStorage.removeItem('miwa_token'); } catch (_) {}   /* sisa login lama */
 
-    setStatus('✅ Token valid — pilih game!');
+    setStatus('✅ Berhasil masuk — pilih game!');
     showTokenDashboard();
     btn.disabled = false;
 
@@ -352,6 +353,8 @@ async function startSpin() {
       localStorage.removeItem('miwa_token');
       setStatus('🚫 Token di-ban oleh Owner');
       showBanPopup(err.reason);
+    } else if (err.needLogin) {
+      setStatus('🔐 Belum masuk — tekan "Masuk via WhatsApp".');
     } else {
       setStatus('❌ ERROR: ' + err.message);
     }
@@ -1002,24 +1005,20 @@ window.addEventListener('beforeunload', (e) => {
 
 // 2. Auto-login otomatis saat web dibuka
 window.addEventListener('DOMContentLoaded', () => {
-  const savedToken = localStorage.getItem('miwa_token');
-  if (savedToken) {
-    const inp = document.getElementById('gachaId');
-    if (inp) {
-      inp.value = savedToken;
-      startSpin(); // Langsung otomatis login
-    }
-  }
+  startSpin(); // cek sesi cookie; kalau belum masuk, tampil tombol "Masuk via WhatsApp"
 });
 
 // 3. Fungsi Keluar / Ganti Token
-function logoutToken() {
+async function logoutToken() {
   if (_gameActive) {
-    setStatus('⛔ Selesaikan game dulu sebelum ganti token!');
+    setStatus('⛔ Selesaikan game dulu sebelum keluar!');
     shakeInput();
     return;
   }
-  localStorage.removeItem('miwa_token');
+  try { localStorage.removeItem('miwa_token'); } catch (_) {}
+  try {
+    await fetch('/api/token-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
+  } catch (_) {}
   location.reload();
 }
 
@@ -1031,7 +1030,6 @@ function copyFailReport() {
   const text = [
     'LAPORAN GAGAL SIMPAN',
     'ID Main: ' + f.rollId,
-    'Token: ' + f.token,
     'Game: ' + (GAME_LABELS[f.game] || f.game),
     'Bet: ' + f.bet + ' bet',
     'Hasil: ' + f.result + ' (' + sign + Math.abs(f.change) + ' bet)',
