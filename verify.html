@@ -46,15 +46,18 @@
     <p class="tagline">Masuk ke Akun</p>
   </div>
 
-  <div class="vf-steps">
+  <div class="vf-steps" id="steps" hidden>
     <div class="vf-step on" id="s1">1 · Nomor</div>
     <div class="vf-step" id="s2">2 · Verifikasi</div>
     <div class="vf-step" id="s3">3 · Masuk</div>
   </div>
 
   <div class="vf-card">
+    <!-- Cek sesi (sebelum step 1) -->
+    <div id="p0"><div class="vf-wait" style="margin:6px 0"><span class="vf-dot"></span><span>Memeriksa sesi…</span></div></div>
+
     <!-- Step 1 -->
-    <div id="p1">
+    <div id="p1" hidden>
       <span class="vf-label">Nomor WhatsApp</span>
       <input class="vf-input" id="phone" type="tel" inputmode="numeric" placeholder="628xxxxxxxxxx" autocomplete="tel">
       <button class="vf-btn" id="startBtn" type="button">Minta Kode</button>
@@ -83,6 +86,7 @@
     </div>
 
     <div class="vf-err" id="err"></div>
+    <button class="vf-btn" id="retryBtn" type="button" hidden>Minta Kode Baru</button>
   </div>
 
   <a class="vf-back" href="/">← Kembali</a>
@@ -93,29 +97,44 @@
   const $ = id => document.getElementById(id);
   let timer = null;
   const PREFIX = '.';
+  const LS_PHONE = 'miwa_verify_phone';
   let phoneShown = '';
+
+  /* ── nomor tersimpan di browser ── */
+  const cleanPhone = s => String(s || '').replace(/\D/g, '');
+  const validPhone = s => s.length >= 8 && s.length <= 15;
+  const getSaved = () => { try { return localStorage.getItem(LS_PHONE) || ''; } catch (_) { return ''; } };
+  const savePhone = p => { try { localStorage.setItem(LS_PHONE, p); } catch (_) {} };
 
   function step(n) {
     ['p1','p2','p3'].forEach((p,i) => $(p).hidden = (i+1) !== n);
     ['s1','s2','s3'].forEach((s,i) => { $(s).className = 'vf-step' + ((i+1)===n ? ' on' : (i+1)<n ? ' done' : ''); });
   }
-  const err = t => { $('err').textContent = t || ''; };
+  /* err(teks, true) → tampilkan juga tombol "Minta Kode Baru" */
+  const err = (t, retry) => { $('err').textContent = t || ''; $('retryBtn').hidden = !(t && retry); };
   const post = body => fetch('/api/token-verify', {
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
   }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
 
-  function reset() { clearInterval(timer); try { sessionStorage.removeItem('vf'); } catch (_) {} err(''); step(1); }
+  function reset() {
+    clearInterval(timer);
+    try { sessionStorage.removeItem('vf'); } catch (_) {}
+    err('');
+    $('phone').value = phoneShown || $('phone').value;
+    step(1);
+  }
 
-  $('startBtn').onclick = async () => {
-    err(''); $('startBtn').disabled = true;
-    const phone = $('phone').value.trim();
+  async function start() {
+    err(''); $('startBtn').disabled = true; $('retryBtn').disabled = true;
+    const phone = cleanPhone($('phone').value);
     let ok, data;
     try { ({ ok, data } = await post({ action: 'start', phone })); }
-    catch (_) { $('startBtn').disabled = false; return err('Koneksi bermasalah, coba lagi.'); }
-    $('startBtn').disabled = false;
+    catch (_) { $('startBtn').disabled = false; $('retryBtn').disabled = false; return err('Koneksi bermasalah, coba lagi.', true); }
+    $('startBtn').disabled = false; $('retryBtn').disabled = false;
     if (!ok) return err(data.error || 'Gagal, coba lagi.');
 
     phoneShown = phone;
+    savePhone(phone);
     $('shownPhone').textContent = phone;
     $('codeBox').textContent = data.code;
     $('cmdBox').textContent = PREFIX + 'csn verify ' + data.code;
@@ -126,22 +145,27 @@
     const until = Date.now() + data.expiresIn * 1000;
     try { sessionStorage.setItem('vf', JSON.stringify({ sid: data.sid, until, phone, code: data.code })); } catch (_) {}
     watch(data.sid, until);
-  };
+  }
+  $('startBtn').onclick = start;
+  $('retryBtn').onclick = start;
 
   let polling = false;
   async function tick(sid, until) {
     if (polling) return;
     polling = true;
     try {
-      if (Date.now() > until) { reset(); return err('Kode kedaluwarsa, minta kode baru.'); }
+      if (Date.now() > until) { reset(); return err('Kode kedaluwarsa, tekan Minta Kode lagi.', true); }
       const r = await post({ action: 'poll', sid });
       if (r.data.status === 'verified') {
         clearInterval(timer);
         try { sessionStorage.removeItem('vf'); } catch (_) {}
+        err('');
         $('okPhone').textContent = phoneShown;
         step(3);
       } else if (r.data.status === 'expired') {
-        reset(); err('Kode kedaluwarsa, minta kode baru.');
+        reset(); err('Kode kedaluwarsa, tekan Minta Kode lagi.', true);
+      } else if (r.data.warn === 'mismatch') {
+        err('Kode dikirim dari nomor lain, bukan ' + phoneShown + '. Kirim dari nomor itu, atau minta kode baru.', true);
       }
       /* error jaringan / 5xx → abaikan, coba lagi di putaran berikutnya */
     } catch (_) { /* koneksi lag: lanjut polling */ }
@@ -160,19 +184,44 @@
       if (st && !$('p2').hidden) tick(st.sid, st.until);
     } catch (_) {}
   });
-  /* Pulihkan setelah refresh / halaman di-reload browser */
-  try {
-    const st = JSON.parse(sessionStorage.getItem('vf') || 'null');
-    if (st && Date.now() < st.until) {
-      phoneShown = st.phone;
-      $('shownPhone').textContent = st.phone;
-      $('codeBox').textContent = st.code;
-      $('cmdBox').textContent = PREFIX + 'csn verify ' + st.code;
-      $('waitMsg').textContent = 'Menunggu verifikasi…';
-      step(2);
-      watch(st.sid, st.until);
-    }
-  } catch (_) {}
+
+  /* ── awal: lewati halaman kalau sudah login, isi nomor dari ?p= / localStorage ── */
+  async function boot() {
+    /* ?p=NOMOR (dari tombol bot) hanya MENGISI nomor, tidak membuat kode */
+    const qp = cleanPhone(new URLSearchParams(location.search).get('p'));
+    if (location.search) { try { history.replaceState(null, '', location.pathname); } catch (_) {} }
+
+    try {
+      const r = await post({ action: 'session' });
+      if (r.data.loggedIn) { location.replace('/'); return; }
+    } catch (_) { /* gagal cek → tampilkan form biasa */ }
+
+    $('p0').hidden = true;
+    $('steps').hidden = false;
+
+    const initial = validPhone(qp) ? qp : getSaved();
+    if (initial) $('phone').value = initial;
+    if (validPhone(qp)) savePhone(qp);
+
+    /* Pulihkan setelah refresh / halaman di-reload browser */
+    try {
+      const st = JSON.parse(sessionStorage.getItem('vf') || 'null');
+      if (st && validPhone(qp) && st.phone !== qp) { sessionStorage.removeItem('vf'); }
+      else if (st && Date.now() < st.until) {
+        phoneShown = st.phone;
+        $('phone').value = st.phone;
+        $('shownPhone').textContent = st.phone;
+        $('codeBox').textContent = st.code;
+        $('cmdBox').textContent = PREFIX + 'csn verify ' + st.code;
+        $('waitMsg').textContent = 'Menunggu verifikasi…';
+        step(2);
+        watch(st.sid, st.until);
+        return;
+      }
+    } catch (_) {}
+    step(1);
+  }
+  boot();
 
   const copy = (txt, btn) => navigator.clipboard?.writeText(txt).then(() => {
     const o = btn.textContent; btn.textContent = 'Tersalin ✓'; setTimeout(() => btn.textContent = o, 1500);
