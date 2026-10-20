@@ -104,12 +104,14 @@
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
   }).then(async r => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
 
-  function reset() { clearInterval(timer); err(''); step(1); }
+  function reset() { clearInterval(timer); try { sessionStorage.removeItem('vf'); } catch (_) {} err(''); step(1); }
 
   $('startBtn').onclick = async () => {
     err(''); $('startBtn').disabled = true;
     const phone = $('phone').value.trim();
-    const { ok, data } = await post({ action: 'start', phone });
+    let ok, data;
+    try { ({ ok, data } = await post({ action: 'start', phone })); }
+    catch (_) { $('startBtn').disabled = false; return err('Koneksi bermasalah, coba lagi.'); }
     $('startBtn').disabled = false;
     if (!ok) return err(data.error || 'Gagal, coba lagi.');
 
@@ -120,20 +122,57 @@
     $('waitMsg').textContent = 'Menunggu verifikasi… (berlaku ' + Math.round(data.expiresIn/60) + ' menit)';
     step(2);
 
+    /* Simpan sesi verifikasi supaya refresh / tab yang di-kill browser (HP lag) bisa lanjut */
     const until = Date.now() + data.expiresIn * 1000;
-    clearInterval(timer);
-    timer = setInterval(async () => {
+    try { sessionStorage.setItem('vf', JSON.stringify({ sid: data.sid, until, phone, code: data.code })); } catch (_) {}
+    watch(data.sid, until);
+  };
+
+  let polling = false;
+  async function tick(sid, until) {
+    if (polling) return;
+    polling = true;
+    try {
       if (Date.now() > until) { reset(); return err('Kode kedaluwarsa, minta kode baru.'); }
-      const r = await post({ action: 'poll', sid: data.sid });
+      const r = await post({ action: 'poll', sid });
       if (r.data.status === 'verified') {
         clearInterval(timer);
+        try { sessionStorage.removeItem('vf'); } catch (_) {}
         $('okPhone').textContent = phoneShown;
         step(3);
-      } else if (r.data.status === 'expired' || (!r.ok && r.data.error)) {
-        reset(); err(r.data.error || 'Kode kedaluwarsa, minta kode baru.');
+      } else if (r.data.status === 'expired') {
+        reset(); err('Kode kedaluwarsa, minta kode baru.');
       }
-    }, 2500);
-  };
+      /* error jaringan / 5xx → abaikan, coba lagi di putaran berikutnya */
+    } catch (_) { /* koneksi lag: lanjut polling */ }
+    finally { polling = false; }
+  }
+  function watch(sid, until) {
+    clearInterval(timer);
+    timer = setInterval(() => tick(sid, until), 2500);
+    tick(sid, until);
+  }
+  /* Balik dari WhatsApp ke browser → langsung cek, jangan tunggu timer yang tertahan */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const st = JSON.parse(sessionStorage.getItem('vf') || 'null');
+      if (st && !$('p2').hidden) tick(st.sid, st.until);
+    } catch (_) {}
+  });
+  /* Pulihkan setelah refresh / halaman di-reload browser */
+  try {
+    const st = JSON.parse(sessionStorage.getItem('vf') || 'null');
+    if (st && Date.now() < st.until) {
+      phoneShown = st.phone;
+      $('shownPhone').textContent = st.phone;
+      $('codeBox').textContent = st.code;
+      $('cmdBox').textContent = PREFIX + 'csn verify ' + st.code;
+      $('waitMsg').textContent = 'Menunggu verifikasi…';
+      step(2);
+      watch(st.sid, st.until);
+    }
+  } catch (_) {}
 
   const copy = (txt, btn) => navigator.clipboard?.writeText(txt).then(() => {
     const o = btn.textContent; btn.textContent = 'Tersalin ✓'; setTimeout(() => btn.textContent = o, 1500);
