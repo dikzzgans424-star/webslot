@@ -7,7 +7,8 @@ import { getClient, DB_NAME, COLLECTION, DOC_ID, createSession, destroySession, 
    poll    (publik)   : web kirim sid → kalau sudah verified, token dikirim SEKALI lalu dihapus */
 
 const COL = "tokenVerify";
-const TTL_MS = 5 * 60 * 1000;
+const TTL_MS = 10 * 60 * 1000;      // masa berlaku kode (HP lag butuh waktu)
+const GRACE_MS = 3 * 60 * 1000;     // setelah verified, poll boleh diulang (respons bisa hilang saat lag)
 const INTERNAL_KEY = process.env.INTERNAL_API_KEY;
 
 const sha = s => createHash("sha256").update(String(s)).digest("hex");
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
       if (!code || !owner || !number) return res.status(400).json({ error: "Data tidak lengkap" });
 
       const vdoc = await vcol.findOne({ _id: code, status: "pending" });
-      if (!vdoc || vdoc.expiresAt < new Date()) return res.status(404).json({ error: "Kode tidak ditemukan / kedaluwarsa" });
+      if (!vdoc || vdoc.expiresAt < new Date()) return res.status(404).json({ error: "Kode tidak ditemukan atau sudah kedaluwarsa (berlaku 10 menit). Minta kode baru di web." });
       if (vdoc.phone !== number) return res.status(403).json({ error: "Nomor pengirim tidak cocok dengan nomor di web" });
 
       const doc = await client.db(DB_NAME).collection(COLLECTION).findOne(
@@ -91,13 +92,13 @@ export default async function handler(req, res) {
       if (!vdoc || vdoc.expiresAt < new Date()) return res.status(200).json({ status: "expired" });
       if (vdoc.status !== "verified") return res.status(200).json({ status: "pending" });
 
-      // sekali pakai: hapus dulu, baru kirim token
-      const del = await vcol.findOneAndDelete({ _id: vdoc._id, status: "verified" });
-      if (!del) return res.status(200).json({ status: "expired" });
+      /* Jangan hapus langsung: kalau respons hilang karena koneksi lag, poll ulang
+         tetap berhasil selama masa tenggang. sid rahasia hanya dimiliki browser ini. */
       const doc = await client.db(DB_NAME).collection(COLLECTION).findOne(
-        { _id: DOC_ID, "tokens.owner": del.owner }, { projection: { "tokens.$": 1 } });
+        { _id: DOC_ID, "tokens.owner": vdoc.owner }, { projection: { "tokens.$": 1 } });
       if (!doc?.tokens?.[0]) return res.status(404).json({ error: "Akun tidak ditemukan" });
-      await createSession(res, del.owner);          // cookie httpOnly; token TIDAK dikirim ke browser
+      await vcol.updateOne({ _id: vdoc._id }, { $set: { expiresAt: new Date(Date.now() + GRACE_MS) } });
+      await createSession(res, vdoc.owner);          // cookie httpOnly; token TIDAK dikirim ke browser
       return res.status(200).json({ status: "verified" });
     }
 
