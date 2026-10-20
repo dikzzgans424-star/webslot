@@ -74,7 +74,7 @@ export default async function handler(req, res) {
     let { token, game, bet } = req.body || {};
 
     /* Identitas dari cookie sesi; token di body hanya dipakai bila login lama masih diizinkan */
-    const sess = await sessionToken(req);
+    const sess = await sessionToken(req, res);
     if (sess) token = sess.token;
     else if (token === "SESSION" || !allowTokenLogin()) {
       return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });

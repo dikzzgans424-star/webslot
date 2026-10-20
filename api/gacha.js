@@ -37,7 +37,7 @@ export default async function handler(req, res) {
        Tidak perlu auth — token adalah secret milik user itu sendiri. */
     if (tokenParam) {
       /* Sesi cookie diutamakan; login via string token hanya jika ALLOW_TOKEN_LOGIN != 0 */
-      let tokenData = await sessionToken(req);
+      let tokenData = await sessionToken(req, res);
       const viaSession = !!tokenData;
       if (!tokenData) {
         if (tokenParam === "SESSION" || !allowTokenLogin()) {

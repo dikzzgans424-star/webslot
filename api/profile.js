@@ -10,7 +10,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "MONGODB_URI tidak ditemukan" });
     }
 
-    let t = await sessionToken(req);
+    let t = await sessionToken(req, res);
     const viaSession = !!t;
     if (!t) {
       const token = String(req.query.token || "").trim().toUpperCase();

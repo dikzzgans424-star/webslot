@@ -211,7 +211,7 @@ export default async function handler(req, res) {
     const internal = isInternalRequest(req);
     if (!internal) {
       owner = undefined;
-      const sess = await sessionToken(req);
+      const sess = await sessionToken(req, res);
       if (sess) token = sess.token;
       else if (token === "SESSION" || !allowTokenLogin()) {
         return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });

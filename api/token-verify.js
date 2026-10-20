@@ -1,10 +1,11 @@
 import { randomBytes, createHash, timingSafeEqual } from "crypto";
-import { getClient, DB_NAME, COLLECTION, DOC_ID, createSession, destroySession, clearSessionCookie, revokeSessions } from "./_shared.js";
+import { getClient, DB_NAME, COLLECTION, DOC_ID, createSession, destroySession, clearSessionCookie, revokeSessions, sessionOwner, maskOwner } from "./_shared.js";
 
 /* Verifikasi lewat grup WA untuk lihat token di web (tanpa kirim DM).
    start   (publik)   : web kirim nomor → dapat kode + sid
    confirm (bot, key) : bot kirim { code, owner, number } setelah user ketik `.casino verify KODE` di grup
-   poll    (publik)   : web kirim sid → kalau sudah verified, token dikirim SEKALI lalu dihapus */
+   poll    (publik)   : web kirim sid → kalau sudah verified, cookie sesi dipasang
+   session (publik)   : web cek apakah cookie sesi masih valid (dipakai /verify untuk lompat ke halaman utama) */
 
 const COL = "tokenVerify";
 const TTL_MS = 10 * 60 * 1000;      // masa berlaku kode (HP lag butuh waktu)
@@ -22,6 +23,10 @@ function internalOk(req) {
   const given = Buffer.from(String(req.headers["x-internal-key"] || "").trim());
   const want = Buffer.from(String(INTERNAL_KEY || ""));
   return want.length > 0 && given.length === want.length && timingSafeEqual(given, want);
+}
+function maskPhone(p) {
+  const d = String(p || "");
+  return d.length > 6 ? d.slice(0, 2) + "••••" + d.slice(-3) : "••••";
 }
 const newCode = () => {
   const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // tanpa karakter mirip
@@ -70,14 +75,23 @@ export default async function handler(req, res) {
       const number = normPhone(req.body.number);
       if (!code || !owner || !number) return res.status(400).json({ error: "Data tidak lengkap" });
 
-      const vdoc = await vcol.findOne({ _id: code, status: "pending" });
-      if (!vdoc || vdoc.expiresAt < new Date()) return res.status(404).json({ error: "Kode tidak ditemukan atau sudah kedaluwarsa (berlaku 10 menit). Minta kode baru di web." });
-      if (vdoc.phone !== number) return res.status(403).json({ error: "Nomor pengirim tidak cocok dengan nomor di web" });
+      const vdoc = await vcol.findOne({ _id: code });
+      if (!vdoc || vdoc.expiresAt < new Date()) {
+        return res.status(404).json({ error: "Kode kedaluwarsa atau tidak ditemukan. Tekan “Minta Kode” lagi di web, lalu kirim kode yang baru.", reason: "expired" });
+      }
+      if (vdoc.status !== "pending") {
+        return res.status(409).json({ error: "Kode ini sudah dipakai. Kalau web belum masuk, tekan “Minta Kode” lagi untuk kode baru.", reason: "used" });
+      }
+      if (vdoc.phone !== number) {
+        /* tandai supaya web bisa menampilkan peringatan "dikirim dari nomor lain" */
+        await vcol.updateOne({ _id: code, status: "pending" }, { $set: { mismatchAt: new Date() } });
+        return res.status(403).json({ error: `Kode ini diminta untuk nomor ${maskPhone(vdoc.phone)}. Kirim dari nomor itu, atau minta kode baru di web memakai nomormu.`, reason: "mismatch" });
+      }
 
       const doc = await client.db(DB_NAME).collection(COLLECTION).findOne(
         { _id: DOC_ID, "tokens.owner": owner }, { projection: { "tokens.$": 1 } });
       const t = doc?.tokens?.[0];
-      if (!t) return res.status(404).json({ error: "Kamu belum punya token kasino" });
+      if (!t) return res.status(404).json({ error: "Kamu belum punya akun kasino", reason: "noaccount" });
       if (t.banned) return res.status(403).json({ error: "Token di-ban" });
 
       const r = await vcol.updateOne({ _id: code, status: "pending" }, { $set: { status: "verified", owner } });
@@ -90,7 +104,7 @@ export default async function handler(req, res) {
       if (sid.length < 32) return res.status(400).json({ error: "sid tidak valid" });
       const vdoc = await vcol.findOne({ sidHash: sha(sid) });
       if (!vdoc || vdoc.expiresAt < new Date()) return res.status(200).json({ status: "expired" });
-      if (vdoc.status !== "verified") return res.status(200).json({ status: "pending" });
+      if (vdoc.status !== "verified") return res.status(200).json({ status: "pending", ...(vdoc.mismatchAt ? { warn: "mismatch" } : {}) });
 
       /* Jangan hapus langsung: kalau respons hilang karena koneksi lag, poll ulang
          tetap berhasil selama masa tenggang. sid rahasia hanya dimiliki browser ini. */
@@ -100,6 +114,12 @@ export default async function handler(req, res) {
       await vcol.updateOne({ _id: vdoc._id }, { $set: { expiresAt: new Date(Date.now() + GRACE_MS) } });
       await createSession(res, vdoc.owner);          // cookie httpOnly; token TIDAK dikirim ke browser
       return res.status(200).json({ status: "verified" });
+    }
+
+    /* ── SESSION (web): sudah login? ── */
+    if (action === "session") {
+      const owner = await sessionOwner(req, res);   // sekaligus memperpanjang sesi
+      return res.status(200).json(owner ? { loggedIn: true, who: maskOwner(owner) } : { loggedIn: false });
     }
 
     /* ── LOGOUT (web) ── */
