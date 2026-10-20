@@ -338,12 +338,12 @@ async function startSpin() {
     }
 
     if (!currentToken) { setStatus('( ! ) Akun tidak ditemukan'); btn.disabled = false; return; }
-    if (currentToken.balance <= 0) { setStatus('( ! ) GAGAL: Saldo token habis'); btn.disabled = false; return; }
+    /* Saldo 0 tetap boleh masuk (lihat dashboard/riwayat); yang diblok cuma main game — lihat selectGame() */
 
     /* ── Anti-refresh: simpan token ke localStorage ── */
     try { localStorage.removeItem('miwa_token'); } catch (_) {}   /* sisa login lama */
 
-    setStatus('✅ Berhasil masuk — pilih game!');
+    setStatus(currentToken.balance < 1 ? '✅ Berhasil masuk — saldo habis, isi saldo dulu untuk main.' : '✅ Berhasil masuk — pilih game!');
     showTokenDashboard();
     btn.disabled = false;
 
@@ -415,18 +415,20 @@ function showTokenDashboard() {
 
     <div class="token-game-section">
       <div class="token-section-label">PILIH GAME</div>
+      ${currentToken.balance < 1 ? '<div class="token-empty-msg" style="margin-bottom:12px">Saldo habis — isi saldo lewat bot (.casino depo) untuk bisa main.</div>' : ''}
       <div class="token-game-grid">
         ${Object.entries(GAME_BUTTONS)
           .filter(([key]) => isGameEnabled(key))
           .sort((a, b) => (gcfg(b[0])?.featured ? 1 : 0) - (gcfg(a[0])?.featured ? 1 : 0))
           .map(([key, label]) => {
-          const locked = isPremiumOnly(key) && !currentToken.isPremium;
+          const noBal  = currentToken.balance < 1;
+          const locked = (isPremiumOnly(key) && !currentToken.isPremium) || noBal;
           const star = gcfg(key)?.featured ? '⭐ ' : '';
           return `
           <button class="token-game-btn ${locked ? 'locked' : ''}" id="gameBtn_${key}"
-                  onclick="selectGame('${key}')" ${locked ? 'title="Khusus token Premium"' : ''}>
+                  onclick="selectGame('${key}')" ${locked ? `title="${noBal ? 'Saldo habis' : 'Khusus token Premium'}"` : ''}>
             ${star}${label} ${locked ? '🔒' : ''}
-            <span class="token-game-multi">${locked ? 'Premium only' : gameMultiLabel(key)}</span>
+            <span class="token-game-multi">${noBal ? 'Saldo habis' : locked ? 'Premium only' : gameMultiLabel(key)}</span>
           </button>
         `;}).join('')}
       </div>
@@ -454,6 +456,11 @@ function selectGame(game) {
   if (isPremiumOnly(game) && !currentToken?.isPremium) {
     SFX.generic.error();
     setStatus('🔒 Game ini khusus token Premium.');
+    return;
+  }
+  if (!currentToken || currentToken.balance < 1) {
+    SFX.generic.error();
+    setStatus('💸 Saldo habis — isi saldo lewat bot (.casino depo) untuk main.');
     return;
   }
   SFX.generic.click();
