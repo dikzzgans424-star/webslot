@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 import { randomUUID, randomBytes } from "crypto";
-import { getConfig, effectiveMax } from "./_shared.js";
+import { getConfig, effectiveMax, sessionToken, allowTokenLogin } from "./_shared.js";
 
 const uri = process.env.MONGODB_URI;
 const DB_NAME = "miwa";
@@ -71,7 +71,14 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "MONGODB_URI tidak ditemukan" });
     }
 
-    const { token, game, bet } = req.body || {};
+    let { token, game, bet } = req.body || {};
+
+    /* Identitas dari cookie sesi; token di body hanya dipakai bila login lama masih diizinkan */
+    const sess = await sessionToken(req);
+    if (sess) token = sess.token;
+    else if (token === "SESSION" || !allowTokenLogin()) {
+      return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });
+    }
 
     if (!token || typeof token !== "string") {
       return res.status(400).json({ error: "token tidak valid" });

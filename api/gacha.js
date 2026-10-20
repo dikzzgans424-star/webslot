@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { sessionToken, allowTokenLogin } from "./_shared.js";
 
 const uri          = process.env.MONGODB_URI;
 const INTERNAL_KEY  = process.env.INTERNAL_API_KEY; // secret key khusus bot WA
@@ -35,19 +36,23 @@ export default async function handler(req, res) {
     /* ── MODE A: lookup by TOKEN (dipakai web app) ──────────────────
        Tidak perlu auth — token adalah secret milik user itu sendiri. */
     if (tokenParam) {
-      const client = await getClient();
-      const col    = client.db(DB_NAME).collection(COLLECTION);
-
-      const doc = await col.findOne(
-        { _id: DOC_ID, "tokens.token": tokenParam },
-        { projection: { "tokens.$": 1 } }
-      );
-
-      if (!doc || !doc.tokens?.[0]) {
-        return res.status(404).json({ error: "Token tidak ditemukan" });
+      /* Sesi cookie diutamakan; login via string token hanya jika ALLOW_TOKEN_LOGIN != 0 */
+      let tokenData = await sessionToken(req);
+      const viaSession = !!tokenData;
+      if (!tokenData) {
+        if (tokenParam === "SESSION" || !allowTokenLogin()) {
+          return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });
+        }
+        const client = await getClient();
+        const doc = await client.db(DB_NAME).collection(COLLECTION).findOne(
+          { _id: DOC_ID, "tokens.token": tokenParam },
+          { projection: { "tokens.$": 1 } }
+        );
+        if (!doc || !doc.tokens?.[0]) {
+          return res.status(404).json({ error: "Token tidak ditemukan" });
+        }
+        tokenData = doc.tokens[0];
       }
-
-      const tokenData = doc.tokens[0];
       if (tokenData.banned) {
         return res.status(403).json({
           error: "Token di-ban oleh Owner",
@@ -55,8 +60,10 @@ export default async function handler(req, res) {
           reason: tokenData.banReason || "",
         });
       }
+      /* Respons sesi: token asli & identitas bot TIDAK dikirim ke browser */
+      const out = viaSession ? { ...tokenData, token: "SESSION", owner: undefined, premiumBy: undefined } : tokenData;
       const content   = Buffer.from(
-        JSON.stringify({ tokens: [tokenData] }, null, 2)
+        JSON.stringify({ tokens: [out] }, null, 2)
       ).toString("base64");
 
       return res.status(200).json({ content, sha: "0" });

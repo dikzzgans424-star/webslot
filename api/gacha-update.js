@@ -1,4 +1,5 @@
 import { MongoClient } from "mongodb";
+import { sessionToken, allowTokenLogin } from "./_shared.js";
 
 const uri = process.env.MONGODB_URI;
 const INTERNAL_KEY = process.env.INTERNAL_API_KEY; // secret key khusus bot WA
@@ -98,7 +99,8 @@ export default async function handler(req, res) {
     }
 
     const body = req.body || {};
-    const { token, owner, change, historyEntry, newToken, setIsPremium, reToken, rollId, botId } = body;
+    let { token, owner } = body;
+    const { change, historyEntry, newToken, setIsPremium, reToken, rollId, botId } = body;
 
     const client = await getClient();
     const col        = client.db(DB_NAME).collection(COLLECTION);
@@ -204,6 +206,23 @@ export default async function handler(req, res) {
     /* ════════════════════════════════════════
        MODE B — APPLY DELTA SALDO
     ════════════════════════════════════════ */
+    /* Dari web (bukan bot internal): identitas HANYA dari cookie sesi (atau token
+       lama bila diizinkan); param owner diabaikan. */
+    const internal = isInternalRequest(req);
+    if (!internal) {
+      owner = undefined;
+      const sess = await sessionToken(req);
+      if (sess) token = sess.token;
+      else if (token === "SESSION" || !allowTokenLogin()) {
+        return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });
+      }
+      /* Web hanya boleh melapor hasil game (butuh historyEntry + rollId). Tambah saldo
+         polos tanpa historyEntry = jalur bot, wajib X-Internal-Key. */
+      if (!historyEntry) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+    }
+
     if (!token && !owner) {
       return res.status(400).json({ error: "Butuh token atau owner" });
     }
