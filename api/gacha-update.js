@@ -1,5 +1,4 @@
 import { MongoClient } from "mongodb";
-import { sessionToken, allowTokenLogin } from "./_shared.js";
 
 const uri = process.env.MONGODB_URI;
 const INTERNAL_KEY = process.env.INTERNAL_API_KEY; // secret key khusus bot WA
@@ -206,16 +205,10 @@ export default async function handler(req, res) {
     /* ════════════════════════════════════════
        MODE B — APPLY DELTA SALDO
     ════════════════════════════════════════ */
-    /* Dari web (bukan bot internal): identitas HANYA dari cookie sesi (atau token
-       lama bila diizinkan); param owner diabaikan. */
+    /* Dari web (bukan bot internal): identitas dari token; param owner diabaikan. */
     const internal = isInternalRequest(req);
     if (!internal) {
       owner = undefined;
-      const sess = await sessionToken(req, res);
-      if (sess) token = sess.token;
-      else if (token === "SESSION" || !allowTokenLogin()) {
-        return res.status(401).json({ error: "Belum masuk. Masuk lewat verifikasi WhatsApp.", needLogin: true });
-      }
       /* Web hanya boleh melapor hasil game (butuh historyEntry + rollId). Tambah saldo
          polos tanpa historyEntry = jalur bot, wajib X-Internal-Key. */
       if (!historyEntry) {

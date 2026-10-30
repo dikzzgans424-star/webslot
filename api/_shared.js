@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import { timingSafeEqual, randomBytes, createHash } from "crypto";
+import { timingSafeEqual } from "crypto";
 
 export const DB_NAME = "miwa";
 export const COLLECTION = "gachadata";
@@ -70,81 +70,4 @@ export function clearConfigCache() { cfgCache = { at: 0, v: null }; }
 
 export function effectiveMax(g, isPremium) {
   return g.maxBet > 0 ? g.maxBet : (isPremium ? DEFAULT_MAX_PREMIUM : DEFAULT_MAX_NORMAL);
-}
-
-/* ═══════════ SESI LOGIN WEB (cookie httpOnly) ═══════════
-   Login: nomor WA + verifikasi di bot (lihat token-verify.js). Token game
-   tidak pernah dikirim ke browser; browser hanya memegang cookie sesi. */
-export const SESS_COL = "sessions";
-export const SESS_COOKIE = "csn_sid";
-export const SESS_TTL_MS = 30 * 24 * 3600 * 1000;
-export const sha256 = s => createHash("sha256").update(String(s)).digest("hex");
-/* ALLOW_TOKEN_LOGIN=0 di Vercel → login lama via string token dimatikan total */
-export const allowTokenLogin = () => process.env.ALLOW_TOKEN_LOGIN !== "0";
-
-let sessIdx = false;
-async function sessCol() {
-  const col = (await getClient()).db(DB_NAME).collection(SESS_COL);
-  if (!sessIdx) { await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); sessIdx = true; }
-  return col;
-}
-function readCookie(req, name) {
-  const raw = String(req.headers?.cookie || "");
-  for (const part of raw.split(";")) {
-    const i = part.indexOf("=");
-    if (i > 0 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
-  }
-  return "";
-}
-/* Sesi geser (sliding): tiap dipakai, masa berlaku diperpanjang lagi 30 hari.
-   Update DB + cookie dibatasi maksimal 1x per RENEW_EVERY_MS supaya tidak menulis tiap request. */
-const RENEW_EVERY_MS = 12 * 3600 * 1000;
-const setSessionCookie = (res, sid) =>
-  res.setHeader("Set-Cookie", `${SESS_COOKIE}=${sid}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${SESS_TTL_MS / 1000}`);
-
-export async function createSession(res, owner) {
-  const sid = randomBytes(32).toString("hex");
-  const col = await sessCol();
-  const now = new Date();
-  await col.insertOne({ _id: sha256(sid), owner, createdAt: now, lastSeenAt: now, expiresAt: new Date(Date.now() + SESS_TTL_MS) });
-  setSessionCookie(res, sid);
-}
-export function clearSessionCookie(res) {
-  res.setHeader("Set-Cookie", `${SESS_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`);
-}
-export async function destroySession(req) {
-  const sid = readCookie(req, SESS_COOKIE);
-  if (sid) await (await sessCol()).deleteOne({ _id: sha256(sid) });
-}
-export async function revokeSessions(owner) {
-  return (await sessCol()).deleteMany({ owner });
-}
-/* → owner (string) atau null.
-   Kalau `res` diberikan, sesi yang aktif diperpanjang (DB + cookie). */
-export async function sessionOwner(req, res) {
-  const sid = readCookie(req, SESS_COOKIE);
-  if (!/^[0-9a-f]{64}$/.test(sid)) return null;
-  const col = await sessCol();
-  const now = Date.now();
-  const s = await col.findOne({ _id: sha256(sid), expiresAt: { $gt: new Date(now) } });
-  if (!s) return null;
-  if (res && !res.headersSent && s.expiresAt.getTime() - now < SESS_TTL_MS - RENEW_EVERY_MS) {
-    try {
-      await col.updateOne({ _id: s._id }, { $set: { lastSeenAt: new Date(now), expiresAt: new Date(now + SESS_TTL_MS) } });
-      setSessionCookie(res, sid);
-    } catch (_) { /* gagal perpanjang tidak boleh menggagalkan request */ }
-  }
-  return s.owner || null;
-}
-/* → data token lengkap milik sesi, atau null (ikut memperpanjang sesi bila `res` diberikan) */
-export async function sessionToken(req, res) {
-  const owner = await sessionOwner(req, res);
-  if (!owner) return null;
-  const doc = await (await getClient()).db(DB_NAME).collection(COLLECTION)
-    .findOne({ _id: DOC_ID, "tokens.owner": owner }, { projection: { "tokens.$": 1 } });
-  return doc?.tokens?.[0] || null;
-}
-export function maskOwner(owner) {
-  const d = String(owner || "").split("@")[0].replace(/\D/g, "");
-  return d.length > 6 ? d.slice(0, 4) + "••••" + d.slice(-2) : "••••";
 }
