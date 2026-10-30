@@ -6,7 +6,7 @@
   <title>Profil — Miwa Gacha</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
   <style>
     .pf-card { background: linear-gradient(165deg, rgba(28,28,38,0.62) 0%, rgba(14,14,20,0.7) 100%);
@@ -44,8 +44,8 @@
     .pf-actions { display: flex; flex-direction: column; gap: 10px; }
     .pf-input-row { display: flex; gap: 8px; }
     .pf-input-row input { flex: 1; min-width: 0; padding: 14px; border-radius: 14px; border: 1px solid var(--border-mid); background: rgba(0,0,0,0.35); color: var(--text-primary); font-family: monospace; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; }
-    .pf-btn { padding: 0 20px; border: 0; border-radius: 14px; font-weight: 800; letter-spacing: 1.5px; cursor: pointer; color: #0c0c0e; background: linear-gradient(135deg, var(--gold-light), var(--gold)); font-family: 'Syne', sans-serif; }
-    a.pf-link { display: block; text-align: center; text-decoration: none; padding: 15px; border-radius: 16px; font-weight: 800; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; font-family: 'Syne', sans-serif; }
+    .pf-btn { padding: 0 20px; border: 0; border-radius: 14px; font-weight: 800; letter-spacing: 1.5px; cursor: pointer; color: #0c0c0e; background: linear-gradient(135deg, var(--gold-light), var(--gold)); font-family: 'Plus Jakarta Sans', sans-serif; }
+    a.pf-link { display: block; text-align: center; text-decoration: none; padding: 15px; border-radius: 16px; font-weight: 800; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; font-family: 'Plus Jakarta Sans', sans-serif; }
     a.pf-link.main { color: #0c0c0e; background: linear-gradient(135deg, var(--gold-light), var(--gold)); }
     a.pf-link.ghost { color: var(--text-secondary); border: 1px solid var(--border-mid); }
   </style>
@@ -60,9 +60,11 @@
   </div>
 
   <div id="pfLogin" class="pf-card" style="display:none">
-    <span class="pf-label">Masuk ke Akun</span>
-    <div class="pf-msg" style="margin-bottom:14px">Masuk dengan verifikasi nomor WhatsApp lewat grup bot.</div>
-    <a class="pf-link main" href="/verify">🔐 &nbsp;Masuk via WhatsApp</a>
+    <span class="pf-label">Masukkan Token</span>
+    <form id="pfForm" class="pf-input-row" autocomplete="off">
+      <input id="pfInput" placeholder="Token kamu" maxlength="64" required>
+      <button class="pf-btn" type="submit">CEK</button>
+    </form>
     <div id="pfLoginMsg" class="pf-msg"></div>
   </div>
 
@@ -71,7 +73,7 @@
   <div id="pfContent" style="display:none">
     <div class="pf-card">
       <div class="pf-token-row">
-        <div><span class="pf-label" style="margin-bottom:6px">Akun</span><div class="pf-token" id="pfToken"></div></div>
+        <div><span class="pf-label" style="margin-bottom:6px">Token</span><div class="pf-token" id="pfToken"></div></div>
         <span class="pf-badge" id="pfBadge"></span>
       </div>
       <span class="pf-label" style="margin-top:20px;margin-bottom:0">Saldo</span>
@@ -97,7 +99,7 @@
 
     <div class="pf-actions">
       <a class="pf-link main" href="/">🎮 &nbsp;Main Sekarang</a>
-      <a class="pf-link ghost" href="#" id="pfSwitch">Keluar</a>
+      <a class="pf-link ghost" href="#" id="pfSwitch">Ganti Token</a>
     </div>
   </div>
 </div>
@@ -116,26 +118,33 @@
   let history = [], shown = 0;
   const PAGE = 15;
 
-  async function load() {
+  function getSavedToken() {
+    const q = new URLSearchParams(location.search).get('token');
+    if (q) return q.trim().toUpperCase();
+    try { return (localStorage.getItem('miwa_token') || '').trim().toUpperCase(); } catch (e) { return ''; }
+  }
+
+  async function load(token) {
     $('pfLoading').style.display = '';
     $('pfLogin').style.display = 'none';
     $('pfContent').style.display = 'none';
     try {
-      const r = await fetch('/api/profile', { cache: 'no-store' });
+      const r = await fetch('/api/profile?token=' + encodeURIComponent(token));
       const d = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(d.error || 'Gagal memuat profil');
       render(d);
     } catch (e) {
       $('pfLoading').style.display = 'none';
       $('pfLogin').style.display = '';
-      $('pfLoginMsg').textContent = '';
+      $('pfLoginMsg').textContent = '❌ ' + e.message;
+      $('pfLoginMsg').className = 'pf-msg err';
     }
   }
 
   function render(d) {
     $('pfLoading').style.display = 'none';
     $('pfContent').style.display = '';
-    $('pfToken').textContent = d.account || '';
+    $('pfToken').textContent = d.token;
     $('pfBadge').textContent = d.isPremium ? '★ Premium' : 'Normal';
     $('pfBadge').className = 'pf-badge ' + (d.isPremium ? 'prem' : 'norm');
     $('pfBal').textContent = fmt(d.balance);
@@ -191,15 +200,22 @@
   }
 
   $('pfMore').addEventListener('click', more);
-  $('pfSwitch').addEventListener('click', async e => {
+  $('pfForm').addEventListener('submit', e => {
     e.preventDefault();
-    try { localStorage.removeItem('miwa_token'); } catch (_) {}
-    try { await fetch('/api/token-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) }); } catch (_) {}
+    const t = $('pfInput').value.trim().toUpperCase();
+    if (t) load(t);
+  });
+  $('pfSwitch').addEventListener('click', e => {
+    e.preventDefault();
     $('pfContent').style.display = 'none';
     $('pfLogin').style.display = '';
+    $('pfLoginMsg').textContent = '';
+    $('pfInput').value = '';
   });
 
-  load();
+  const saved = getSavedToken();
+  if (saved) load(saved);
+  else { $('pfLoading').style.display = 'none'; $('pfLogin').style.display = ''; }
 })();
 </script>
 </body>

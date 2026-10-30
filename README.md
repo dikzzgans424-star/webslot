@@ -1,12 +1,11 @@
-# Miwa Gacha
+# AV Slot
 
-Env Vercel: `MONGODB_URI`, `ADMIN_PASS` (WAJIB ganti), `ADMIN_PATTERN` (default 538167294), `INTERNAL_API_KEY`,
-`ALLOW_TOKEN_LOGIN` (set `0` setelah semua user pindah ke login WhatsApp; kosong = login token lama masih jalan).
+Env Vercel: `MONGODB_URI`, `ADMIN_PASS` (WAJIB ganti), `ADMIN_PATTERN` (default 538167294), `INTERNAL_API_KEY`.
 
-## Login web (v2)
-1. User `.csn create` di bot → akun dibuat (token disimpan di server, tidak dikirim ke chat).
-2. Buka `/verify`, isi nomor WA → dapat kode → kirim `.csn verify KODE` di grup/DM bot.
-3. Web login otomatis lewat cookie sesi httpOnly (30 hari). `.csn logout` mencabut semua sesi.
+## Login web
+User masukkan token di web (disimpan di `localStorage`, auto-login saat dibuka lagi). Token dibuat lewat bot (`.csn create`).
+Sistem verifikasi WhatsApp dan sesi cookie sudah dihapus.
 
-Admin: `/admin` atau `/owner` (pola → password). Config game di `gachaconfig`, log admin di `adminLogs`.
-Collection baru: `tokenVerify` (kode 5 menit), `sessions` (TTL 30 hari).
+Admin: `/admin` atau `/owner` (pola → password) → tab Statistik · Game · Token · Log.
+Config game disimpan di collection `gachaconfig`, log admin di `adminLogs`.
+Collection lama `tokenVerify` dan `sessions` sudah tidak dipakai (boleh dihapus manual dari MongoDB).
